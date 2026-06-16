@@ -1,3 +1,25 @@
+<<<<<<< HEAD:P2/main.cpp
+=======
+// =====================================================================
+// VITS Text Encoder - Part 2: RVV Vector Reduction (inline asm)
+// Advanced Computer Architecture Final Project
+//
+// 不使用 <riscv_vector.h>; 全部以 inline asm 撰寫 RVV reduction
+// 硬性規定: 使用 vfredusum.vs 將向量元素折疊為純量
+//
+// 格式參考教授範例:
+//   - 操作數以指標傳入 (input operands), 結果用 fsw 寫回
+//   - vsetvli 設定 e32/m1/ta/ma
+//   - reduction 三步: vmv.v.i v0,0 -> vfredusum.vs -> vfmv.f.s
+//   - clobber 列出純量/浮點暫存器 + "memory"
+//   - 額外: 加 strip-mining 迴圈處理 n > VLEN 的大向量 (自動分塊)
+//
+// 編譯 (仍需 -march 讓 assembler 認得向量指令, 但不需 header):
+//   riscv64-linux-gnu-g++ -O2 -march=rv64gcv \
+//       text_encoder_part2.cpp -o text_encoder_part2
+// =====================================================================
+
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -14,6 +36,7 @@ const int FILTER_DIM = 512;
 const int KERNEL_SIZE = 3;
 
 // =====================================================================
+<<<<<<< HEAD:P2/main.cpp
 // RVV Reduction 
 // =====================================================================
 
@@ -37,6 +60,39 @@ static inline float reduce_sum_rvv(const float* a, size_t n) {
         "vfredusum.vs v4, v8, v0                   \n\t"  
         "vfmv.f.s     ft1, v4                       \n\t"  
         "fsw          ft1, (%[res])                 \n\t"  
+=======
+// RVV Reduction 核心工具 (inline asm)
+//
+// 共同結構:
+//   [init]  vsetvli 取 vlmax -> vmv.v.i v8,0 (向量累加器歸零)
+//   [loop]  vsetvli t0, 剩餘長度 -> 載入 -> 運算 -> 指標前進 -> 遞減
+//   [final] vsetvli 取 vlmax -> vfredusum.vs 折疊 -> vfmv.f.s -> fsw
+//
+// 註: 迴圈用 t2(剩餘) / t3,t4(指標) 為可變副本, 原始 operand 維持唯讀
+// =====================================================================
+
+// 純加總: result = Σ a[0..n-1]
+static inline float reduce_sum_rvv(const float* a, size_t n) {
+    float result = 0.0f;
+    asm volatile(
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // vlmax
+        "vmv.v.i      v8, 0                        \n\t"  // 累加器歸零
+        "mv           t2, %[n]                     \n\t"  // 剩餘元素
+        "mv           t3, %[a]                     \n\t"  // 可變指標
+        "1:                                        \n\t"
+        "vsetvli      t0, t2, e32, m1, ta, ma     \n\t"  // vl = min(剩餘, vlmax)
+        "vle32.v      v1, (t3)                     \n\t"  // 載入一塊
+        "vfadd.vv     v8, v8, v1                   \n\t"  // 部分和累加
+        "slli         t1, t0, 2                    \n\t"  // vl * 4 bytes
+        "add          t3, t3, t1                   \n\t"  // 指標前進
+        "sub          t2, t2, t0                   \n\t"  // 剩餘遞減
+        "bnez         t2, 1b                       \n\t"
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // 折疊用 vlmax
+        "vmv.v.i      v0, 0                        \n\t"  // reduction 初始 scalar
+        "vfredusum.vs v4, v8, v0                   \n\t"  // v4[0] = Σ v8
+        "vfmv.f.s     ft1, v4                       \n\t"  // 取出 element 0
+        "fsw          ft1, (%[res])                 \n\t"  // 寫回
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
         :
         : [a] "r"(a), [n] "r"(n), [res] "r"(&result)
         : "t0", "t1", "t2", "t3", "ft1", "memory"
@@ -44,6 +100,7 @@ static inline float reduce_sum_rvv(const float* a, size_t n) {
     return result;
 }
 
+<<<<<<< HEAD:P2/main.cpp
 static inline float dot_rvv(const float* a, const float* b, size_t n) {
     float result = 0.0f;
     asm volatile(
@@ -58,13 +115,36 @@ static inline float dot_rvv(const float* a, const float* b, size_t n) {
         "vle32.v      v2, (t4)                     \n\t"  
         "vfmacc.vv    v8, v1, v2                   \n\t" 
         "slli         t1, t0, 2                    \n\t"  
+=======
+// 點積: result = Σ a[k] * b[k]
+static inline float dot_rvv(const float* a, const float* b, size_t n) {
+    float result = 0.0f;
+    asm volatile(
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // vlmax
+        "vmv.v.i      v8, 0                        \n\t"  // 累加器歸零
+        "mv           t2, %[n]                     \n\t"  // 剩餘元素
+        "mv           t3, %[a]                     \n\t"  // 可變指標 a
+        "mv           t4, %[b]                     \n\t"  // 可變指標 b
+        "1:                                        \n\t"
+        "vsetvli      t0, t2, e32, m1, ta, ma     \n\t"  // vl = min(剩餘, vlmax)
+        "vle32.v      v1, (t3)                     \n\t"  // 載入 a 一塊
+        "vle32.v      v2, (t4)                     \n\t"  // 載入 b 一塊
+        "vfmacc.vv    v8, v1, v2                   \n\t"  // 部分積累加 v8 += a*b
+        "slli         t1, t0, 2                    \n\t"  // vl * 4 bytes
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
         "add          t3, t3, t1                   \n\t"
         "add          t4, t4, t1                   \n\t"
         "sub          t2, t2, t0                   \n\t"
         "bnez         t2, 1b                       \n\t"
+<<<<<<< HEAD:P2/main.cpp
         "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  
         "vmv.v.i      v0, 0                        \n\t"  
         "vfredusum.vs v4, v8, v0                   \n\t"  
+=======
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // 折疊用 vlmax
+        "vmv.v.i      v0, 0                        \n\t"  // reduction 初始 scalar
+        "vfredusum.vs v4, v8, v0                   \n\t"  // v4[0] = Σ v8
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
         "vfmv.f.s     ft1, v4                       \n\t"
         "fsw          ft1, (%[res])                 \n\t"
         :
@@ -74,6 +154,7 @@ static inline float dot_rvv(const float* a, const float* b, size_t n) {
     return result;
 }
 
+<<<<<<< HEAD:P2/main.cpp
 static inline float reduce_sq_diff_rvv(const float* a, float mean, size_t n) {
     float result = 0.0f;
     asm volatile(
@@ -86,13 +167,34 @@ static inline float reduce_sq_diff_rvv(const float* a, float mean, size_t n) {
         "vle32.v      v1, (t3)                     \n\t"  
         "vfsub.vf     v2, v1, %[mean]              \n\t"  
         "vfmacc.vv    v8, v2, v2                   \n\t"  
+=======
+// (x - mean)^2 的加總: result = Σ (a[k] - mean)^2
+static inline float reduce_sq_diff_rvv(const float* a, float mean, size_t n) {
+    float result = 0.0f;
+    asm volatile(
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // vlmax
+        "vmv.v.i      v8, 0                        \n\t"  // 累加器歸零
+        "mv           t2, %[n]                     \n\t"  // 剩餘元素
+        "mv           t3, %[a]                     \n\t"  // 可變指標
+        "1:                                        \n\t"
+        "vsetvli      t0, t2, e32, m1, ta, ma     \n\t"  // vl = min(剩餘, vlmax)
+        "vle32.v      v1, (t3)                     \n\t"  // 載入一塊
+        "vfsub.vf     v2, v1, %[mean]              \n\t"  // v2 = a - mean
+        "vfmacc.vv    v8, v2, v2                   \n\t"  // 累加 (a-mean)^2
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
         "slli         t1, t0, 2                    \n\t"
         "add          t3, t3, t1                   \n\t"
         "sub          t2, t2, t0                   \n\t"
         "bnez         t2, 1b                       \n\t"
+<<<<<<< HEAD:P2/main.cpp
         "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  
         "vmv.v.i      v0, 0                        \n\t"  
         "vfredusum.vs v4, v8, v0                   \n\t"  
+=======
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // 折疊用 vlmax
+        "vmv.v.i      v0, 0                        \n\t"  // reduction 初始 scalar
+        "vfredusum.vs v4, v8, v0                   \n\t"  // v4[0] = Σ v8
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
         "vfmv.f.s     ft1, v4                       \n\t"
         "fsw          ft1, (%[res])                 \n\t"
         :
@@ -150,7 +252,11 @@ void layer_norm(const std::vector<float>& input, std::vector<float>& output,
 }
 
 // =====================================================================
+<<<<<<< HEAD:P2/main.cpp
 // Linear Projection (RVV reduction)
+=======
+// 線性投影 (RVV reduction): out[i][d] = Σ_k in[i][k] * W[d][k]
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
 // =====================================================================
 void linear_proj(const std::vector<float>& input, const std::vector<float>& W,
                  std::vector<float>& output, int in_dim, int out_dim) {
@@ -186,7 +292,11 @@ void multi_head_attention(const std::vector<float>& input,
             std::vector<float> scores(SEQ_LEN, 0.0f);
             float max_score = -1e9f;
 
+<<<<<<< HEAD:P2/main.cpp
             // 1. Q * K^T 
+=======
+            // 1. Q * K^T (head 內 HEAD_DIM 連續 -> RVV reduction)
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
             const float* q_ptr = &Q[i * HIDDEN_DIM + head_offset];
             for (int j = 0; j < SEQ_LEN; ++j) {
                 const float* k_ptr = &K[j * HIDDEN_DIM + head_offset];
@@ -205,7 +315,11 @@ void multi_head_attention(const std::vector<float>& input,
                 scores[j] /= sum_exp;
             }
 
+<<<<<<< HEAD:P2/main.cpp
             // 3. Attn * V
+=======
+            // 3. Attn * V (對 j 步進讀 V -> strided, 留 Part 3, 此處 scalar)
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
             for (int d = 0; d < HEAD_DIM; ++d) {
                 float out_val = 0.0f;
                 for (int j = 0; j < SEQ_LEN; ++j) {
@@ -218,7 +332,11 @@ void multi_head_attention(const std::vector<float>& input,
 }
 
 // =====================================================================
+<<<<<<< HEAD:P2/main.cpp
 // 1D Convolution (FFN)
+=======
+// 1D Convolution (FFN 升維): 保留 scalar (strided weight -> Part 3)
+>>>>>>> 6aba25105461abcca2337dbc84986650060d5794:P2/text_encoder_part2.cpp
 // =====================================================================
 void ffn_conv1d(const std::vector<float>& input, std::vector<float>& output,
                 const std::vector<float>& weights, int in_dim, int out_dim) {
