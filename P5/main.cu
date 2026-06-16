@@ -1,12 +1,8 @@
 #include <cstdio>
-#include <cstdlib>
-#include <cmath>
 #include <vector>
+#include <cmath>
 #include <cuda_runtime.h>
 
-// ---------------------------------------------------------------------
-// Hyperparameter
-// ---------------------------------------------------------------------
 #define SEQ_LEN     32
 #define HIDDEN_DIM  128
 #define NUM_HEADS   4
@@ -14,9 +10,8 @@
 #define FILTER_DIM  512
 #define KERNEL_SIZE 3
 
-#define BLOCK_SIZE   256    // block size 
+#define BLOCK_SIZE   256
 #define NUM_PATTERNS 16
-
 
 #define HID_PER  (SEQ_LEN * HIDDEN_DIM)
 #define FIL_PER  (SEQ_LEN * FILTER_DIM)
@@ -39,20 +34,20 @@ __global__ void linear_proj_kernel(const float* __restrict__ in,
                                    const float* __restrict__ W,
                                    float* __restrict__ out,
                                    int in_dim, int out_dim) {
-    __shared__ float s_in[FILTER_DIM];        
-    int i   = blockIdx.x;                     
-    int p   = blockIdx.y;                     
+    __shared__ float s_in[FILTER_DIM];
+    int i   = blockIdx.x;
+    int p   = blockIdx.y;
     int tid = threadIdx.x;
 
     const float* in_row  = &in[((size_t)p * SEQ_LEN + i) * in_dim];
     float*       out_row = &out[((size_t)p * SEQ_LEN + i) * out_dim];
 
     for (int k = tid; k < in_dim; k += blockDim.x)
-        s_in[k] = in_row[k];                   
+        s_in[k] = in_row[k];
     __syncthreads();
 
     for (int d = tid; d < out_dim; d += blockDim.x) {
-        const float* w_row = &W[d * in_dim]; 
+        const float* w_row = &W[d * in_dim];
         float sum = 0.0f;
         for (int k = 0; k < in_dim; ++k)
             sum += s_in[k] * w_row[k];
@@ -130,9 +125,8 @@ __global__ void av_kernel(const float* __restrict__ scores,
     float*       outp = &out[(size_t)p * HID_PER];
 
     float out_val = 0.0f;
-    for (int j = 0; j < SEQ_LEN; ++j) {
+    for (int j = 0; j < SEQ_LEN; ++j)
         out_val += srow[j] * Vp[j * HIDDEN_DIM + head_offset + d];
-    }
     outp[i * HIDDEN_DIM + head_offset + d] = out_val;
 }
 
@@ -206,31 +200,35 @@ __global__ void residual_kernel(float* __restrict__ x,
 // ---------------------------------------------------------------------
 static inline int grid_for(int total) { return (total + BLOCK_SIZE - 1) / BLOCK_SIZE; }
 
-void init_random(std::vector<float>& v) {
-    for (size_t i = 0; i < v.size(); ++i)
-        v[i] = ((float)rand() / RAND_MAX) * 0.2f - 0.1f;
+void init_random(std::vector<float>& vec) {
+    for (size_t i = 0; i < vec.size(); ++i) {
+        vec[i] = ((float)rand() / RAND_MAX) * 0.2f - 0.1f;
+    }
 }
 
 // =====================================================================
 int main() {
-    srand(42);
-
     const int TOT_HID = NUM_PATTERNS * HID_PER;
     const int TOT_FIL = NUM_PATTERNS * FIL_PER;
     const int TOT_SCO = NUM_PATTERNS * SCO_PER;
 
-    // --- Host 初始化 ---
+    // --- Host ---
     std::vector<float> h_Wq(HIDDEN_DIM * HIDDEN_DIM), h_Wk(HIDDEN_DIM * HIDDEN_DIM),
                        h_Wv(HIDDEN_DIM * HIDDEN_DIM);
     std::vector<float> h_conv_w(FILTER_DIM * HIDDEN_DIM * KERNEL_SIZE);
     std::vector<float> h_proj_w(HIDDEN_DIM * FILTER_DIM);
     std::vector<float> h_x(TOT_HID);
 
-    init_random(h_Wq); init_random(h_Wk); init_random(h_Wv);
-    init_random(h_conv_w); init_random(h_proj_w);
+    srand(42);
+    
+    init_random(h_Wq);
+    init_random(h_Wk);
+    init_random(h_Wv);
+    init_random(h_conv_w);
+    init_random(h_proj_w);
     init_random(h_x);
 
-    // --- Device buffers
+    // --- Device buffers---
     float *d_x, *d_norm1, *d_Q, *d_K, *d_V, *d_scores, *d_attn,
           *d_norm2, *d_ffn, *d_proj;
     float *d_Wq, *d_Wk, *d_Wv, *d_conv_w, *d_proj_w;
@@ -272,8 +270,6 @@ int main() {
     CUDA_CHECK(cudaEventCreate(&t1));
     CUDA_CHECK(cudaEventRecord(t0));
 
-    printf("Starting VITS Text Encoder Simulation (Part 5 Multi-pattern)...\n");
-
     // ---- Encoder Block (multi-pattern) ----
     layer_norm_kernel<<<g_ln, BLOCK_SIZE>>>(d_x, d_norm1, HIDDEN_DIM);
 
@@ -303,16 +299,16 @@ int main() {
     std::vector<float> h_out(TOT_HID);
     CUDA_CHECK(cudaMemcpy(h_out.data(), d_x, TOT_HID * sizeof(float), cudaMemcpyDeviceToHost));
 
-    float checksum = 0.0f;
-    for (float v : h_out) checksum += v;
+    float sum = 0.0f;
+    for (float v : h_out) sum += v;
 
-    float checksum_p0 = 0.0f;
-    for (int idx = 0; idx < HID_PER; ++idx) checksum_p0 += h_out[idx];
+    float sum_p0 = 0.0f;
+    for (int i = 0; i < HID_PER; ++i) sum_p0 += h_out[i];
 
-    printf("Encoder Simulation Completed.\n");
-    printf("Patterns: %d | Block size: %d\n", NUM_PATTERNS, BLOCK_SIZE);
-    printf("Kernel time: %.4f ms (%.4f ms / pattern)\n", ms, ms / NUM_PATTERNS);
-    printf("Pattern-0 Checksum: %f\n", checksum_p0);
+    printf("Patterns = %d | Block size = %d\n", NUM_PATTERNS, BLOCK_SIZE);
+    printf("GPU time      = %f ms (%f ms / pattern)\n", ms, ms / NUM_PATTERNS);
+    printf("GPU sum       = %f\n", sum);
+    printf("Pattern-0 sum = %f\n", sum_p0);
 
     cudaFree(d_x); cudaFree(d_norm1); cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V);
     cudaFree(d_scores); cudaFree(d_attn); cudaFree(d_norm2); cudaFree(d_ffn); cudaFree(d_proj);

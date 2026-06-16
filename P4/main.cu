@@ -14,7 +14,6 @@
 #define FILTER_DIM  512
 #define KERNEL_SIZE 3
 
-// Block size 旋鈕 (Part 4: 掃描 occupancy / 效能)
 #define BLOCK_SIZE 1024
 
 // ---------------------------------------------------------------------

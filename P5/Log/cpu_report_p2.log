@@ -1,0 +1,5 @@
+========== CPU Result (NUM_PATTERNS = 2) ==========
+Patterns = 2
+CPU time      = 13.720457 ms (6.860228 ms / pattern)
+CPU sum       = 186.171692
+Pattern-0 sum = 99.227943

@@ -1,12 +1,12 @@
-========== (BLOCK_SIZE = 1024) ==========
+========== GPU Result (BLOCK_SIZE = 1024) ==========
 Starting VITS Text Encoder Simulation (Part 4 CUDA SIMT)...
 Encoder Simulation Completed.
 Block size: 1024
-Kernel time: 0.7644 ms
+Kernel time: 0.8041 ms
 Final Feature Checksum: 99.228035
 
-========== Nsight Compute 效能報告 ==========
-==PROF== Connected to process 1271 (/workspace/P4/main)
+========== Nsight Compute  ==========
+==PROF== Connected to process 13974 (/workspace/P4/main)
 ==PROF== Profiling "layer_norm_kernel" - 0: 0%....50%....100% - 8 passes
 ==PROF== Profiling "linear_proj_kernel" - 1: 0%....50%....100% - 8 passes
 ==PROF== Profiling "linear_proj_kernel" - 2: 0%....50%....100% - 8 passes
@@ -22,24 +22,24 @@ Final Feature Checksum: 99.228035
 Starting VITS Text Encoder Simulation (Part 4 CUDA SIMT)...
 Encoder Simulation Completed.
 Block size: 1024
-Kernel time: 1146.2546 ms
+Kernel time: 1227.1410 ms
 Final Feature Checksum: 99.228035
-==PROF== Disconnected from process 1271
-[1271] main@127.0.0.1
+==PROF== Disconnected from process 13974
+[13974] main@127.0.0.1
   layer_norm_kernel(const float *, float *, int) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
     Section: GPU Speed Of Light Throughput
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         8.06
+    DRAM Frequency          cycle/nsecond         8.08
     SM Frequency            cycle/nsecond         1.92
-    Elapsed Cycles                  cycle        39040
-    Memory Throughput                   %         1.78
-    DRAM Throughput                     %         0.55
-    Duration                      usecond        20.38
-    L1/TEX Cache Throughput             %        44.20
-    L2 Cache Throughput                 %         1.52
-    SM Active Cycles                cycle      1547.67
+    Elapsed Cycles                  cycle        38757
+    Memory Throughput                   %         1.77
+    DRAM Throughput                     %         0.62
+    Duration                      usecond        20.22
+    L1/TEX Cache Throughput             %        44.56
+    L2 Cache Throughput                 %         1.53
+    SM Active Cycles                cycle      1534.92
     Compute (SM) Throughput             %         0.12
     ----------------------- ------------- ------------
 
@@ -82,12 +82,12 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %         2.89
-    Achieved Active Warps Per SM           warp         1.39
+    Achieved Occupancy                        %         2.95
+    Achieved Active Warps Per SM           warp         1.42
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 95.66%                                                                                    
-          The difference between calculated theoretical (66.7%) and measured achieved occupancy (2.9%) can be the       
+    OPT   Est. Local Speedup: 95.57%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (3.0%) can be the       
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -102,21 +102,126 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle          896
-    Total DRAM Elapsed Cycles        cycle       657408
-    Average L1 Active Cycles         cycle      1547.67
-    Total L1 Elapsed Cycles          cycle       921056
-    Average L2 Active Cycles         cycle      5248.44
-    Total L2 Elapsed Cycles          cycle       590464
-    Average SM Active Cycles         cycle      1547.67
-    Total SM Elapsed Cycles          cycle       921056
-    Average SMSP Active Cycles       cycle       396.14
-    Total SMSP Elapsed Cycles        cycle      3684224
+    Average DRAM Active Cycles       cycle         1008
+    Total DRAM Elapsed Cycles        cycle       653312
+    Average L1 Active Cycles         cycle      1534.92
+    Total L1 Elapsed Cycles          cycle       928008
+    Average L2 Active Cycles         cycle      5275.12
+    Total L2 Elapsed Cycles          cycle       586240
+    Average SM Active Cycles         cycle      1534.92
+    Total SM Elapsed Cycles          cycle       928008
+    Average SMSP Active Cycles       cycle       396.36
+    Total SMSP Elapsed Cycles        cycle      3712032
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 6.958%                                                                                          
-          One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 48.93% above the average, while the minimum instance value is 34.84% below the      
+  linear_proj_kernel(const float *, const float *, float *, int, int) (32, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- ------------
+    Metric Name               Metric Unit Metric Value
+    ----------------------- ------------- ------------
+    DRAM Frequency          cycle/nsecond         8.09
+    SM Frequency            cycle/nsecond         1.91
+    Elapsed Cycles                  cycle        39876
+    Memory Throughput                   %        56.06
+    DRAM Throughput                     %         1.62
+    Duration                      usecond        20.83
+    L1/TEX Cache Throughput             %        86.80
+    L2 Cache Throughput                 %         8.28
+    SM Active Cycles                cycle     25632.17
+    Compute (SM) Throughput             %         4.60
+    ----------------------- ------------- ------------
+
+    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
+          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
+          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
+
+    Section: Launch Statistics
+    -------------------------------- --------------- ---------------
+    Metric Name                          Metric Unit    Metric Value
+    -------------------------------- --------------- ---------------
+    Block Size                                                  1024
+    Function Cache Configuration                     CachePreferNone
+    Grid Size                                                     32
+    Registers Per Thread             register/thread              40
+    Shared Memory Configuration Size           Kbyte            8.19
+    Driver Shared Memory Per Block       Kbyte/block            1.02
+    Dynamic Shared Memory Per Block       byte/block               0
+    Static Shared Memory Per Block       Kbyte/block            2.05
+    # SMs                                         SM              24
+    Threads                                   thread           32768
+    Uses Green Context                                             0
+    Waves Per SM                                                1.33
+    -------------------------------- --------------- ---------------
+
+    OPT   If you execute __syncthreads() to synchronize the threads of a block, it is recommended to have more than the 
+          achieved 1 blocks per multiprocessor. This way, blocks that aren't waiting for __syncthreads() can keep the   
+          hardware busy.                                                                                                
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Speedup: 50%                                                                                             
+          A wave of thread blocks is defined as the maximum number of blocks that can be executed in parallel on the    
+          target GPU. The number of blocks in a wave depends on the number of multiprocessors and the theoretical       
+          occupancy of the kernel. This kernel launch results in 1 full waves and a partial wave of 7 thread blocks.    
+          Under the assumption of a uniform execution duration of all thread blocks, the partial wave may account for   
+          up to 50.0% of the total kernel runtime with a lower occupancy of 80.5%. Try launching a grid with no         
+          partial wave. The overall impact of this tail effect also lessens with the number of full waves executed for  
+          a grid. See the Hardware Model                                                                                
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-hw-model) description for more      
+          details on launch configurations.                                                                             
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           24
+    Block Limit Registers                 block            1
+    Block Limit Shared Mem                block            2
+    Block Limit Warps                     block            1
+    Theoretical Active Warps per SM        warp           32
+    Theoretical Occupancy                     %        66.67
+    Achieved Occupancy                        %        12.98
+    Achieved Active Warps Per SM           warp         6.23
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 80.53%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (13.0%) can be the      
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Local Speedup: 33.33%                                                                                    
+          The 8.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
+          hardware maximum of 12. This kernel's theoretical occupancy (66.7%) is limited by the number of required      
+          registers. This kernel's theoretical occupancy (66.7%) is limited by the number of warps within each block.   
+
+    Section: GPU and Memory Workload Distribution
+    -------------------------- ----------- ------------
+    Metric Name                Metric Unit Metric Value
+    -------------------------- ----------- ------------
+    Average DRAM Active Cycles       cycle         2724
+    Total DRAM Elapsed Cycles        cycle       673792
+    Average L1 Active Cycles         cycle     25632.17
+    Total L1 Elapsed Cycles          cycle       952592
+    Average L2 Active Cycles         cycle     10202.38
+    Total L2 Elapsed Cycles          cycle       603056
+    Average SM Active Cycles         cycle     25632.17
+    Total SM Elapsed Cycles          cycle       952592
+    Average SMSP Active Cycles       cycle     24793.34
+    Total SMSP Elapsed Cycles        cycle      3810368
+    -------------------------- ----------- ------------
+
+    OPT   Est. Speedup: 20.79%                                                                                          
+          One or more SMs have a much higher number of active cycles than the average number of active cycles. Maximum  
+          instance value is 32.20% above the average, while the minimum instance value is 23.80% below the average.     
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Speedup: 21.01%                                                                                          
+          One or more SMSPs have a much higher number of active cycles than the average number of active cycles.        
+          Maximum instance value is 33.63% above the average, while the minimum instance value is 26.97% below the      
+          average.                                                                                                      
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Speedup: 20.79%                                                                                          
+          One or more L1 Slices have a much higher number of active cycles than the average number of active cycles.    
+          Maximum instance value is 32.20% above the average, while the minimum instance value is 23.80% below the      
           average.                                                                                                      
 
   linear_proj_kernel(const float *, const float *, float *, int, int) (32, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -126,13 +231,13 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     DRAM Frequency          cycle/nsecond         8.07
     SM Frequency            cycle/nsecond         1.92
-    Elapsed Cycles                  cycle        39624
-    Memory Throughput                   %        55.88
-    DRAM Throughput                     %         1.79
-    Duration                      usecond        20.67
-    L1/TEX Cache Throughput             %        87.43
-    L2 Cache Throughput                 %         8.34
-    SM Active Cycles                cycle     25446.92
+    Elapsed Cycles                  cycle        39958
+    Memory Throughput                   %        55.85
+    DRAM Throughput                     %         1.62
+    Duration                      usecond        20.86
+    L1/TEX Cache Throughput             %        86.40
+    L2 Cache Throughput                 %         8.26
+    SM Active Cycles                cycle     25752.75
     Compute (SM) Throughput             %         4.58
     ----------------------- ------------- ------------
 
@@ -167,7 +272,7 @@ Final Feature Checksum: 99.228035
           target GPU. The number of blocks in a wave depends on the number of multiprocessors and the theoretical       
           occupancy of the kernel. This kernel launch results in 1 full waves and a partial wave of 7 thread blocks.    
           Under the assumption of a uniform execution duration of all thread blocks, the partial wave may account for   
-          up to 50.0% of the total kernel runtime with a lower occupancy of 81.7%. Try launching a grid with no         
+          up to 50.0% of the total kernel runtime with a lower occupancy of 81.3%. Try launching a grid with no         
           partial wave. The overall impact of this tail effect also lessens with the number of full waves executed for  
           a grid. See the Hardware Model                                                                                
           (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-hw-model) description for more      
@@ -183,12 +288,12 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        12.18
-    Achieved Active Warps Per SM           warp         5.85
+    Achieved Occupancy                        %        12.44
+    Achieved Active Warps Per SM           warp         5.97
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 81.72%                                                                                    
-          The difference between calculated theoretical (66.7%) and measured achieved occupancy (12.2%) can be the      
+    OPT   Est. Local Speedup: 81.34%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (12.4%) can be the      
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -203,35 +308,35 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle         2980
-    Total DRAM Elapsed Cycles        cycle       667648
-    Average L1 Active Cycles         cycle     25446.92
-    Total L1 Elapsed Cycles          cycle       955584
-    Average L2 Active Cycles         cycle     10409.19
-    Total L2 Elapsed Cycles          cycle       599152
-    Average SM Active Cycles         cycle     25446.92
-    Total SM Elapsed Cycles          cycle       955584
-    Average SMSP Active Cycles       cycle     25015.16
-    Total SMSP Elapsed Cycles        cycle      3822336
+    Average DRAM Active Cycles       cycle         2724
+    Total DRAM Elapsed Cycles        cycle       673792
+    Average L1 Active Cycles         cycle     25752.75
+    Total L1 Elapsed Cycles          cycle       956200
+    Average L2 Active Cycles         cycle     19180.69
+    Total L2 Elapsed Cycles          cycle       604352
+    Average SM Active Cycles         cycle     25752.75
+    Total SM Elapsed Cycles          cycle       956200
+    Average SMSP Active Cycles       cycle     24920.53
+    Total SMSP Elapsed Cycles        cycle      3824800
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 20.57%                                                                                          
+    OPT   Est. Speedup: 20.59%                                                                                          
           One or more SMs have a much higher number of active cycles than the average number of active cycles. Maximum  
-          instance value is 32.18% above the average, while the minimum instance value is 24.01% below the average.     
+          instance value is 31.85% above the average, while the minimum instance value is 23.62% below the average.     
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 21.18%                                                                                          
+    OPT   Est. Speedup: 20.95%                                                                                          
           One or more SMSPs have a much higher number of active cycles than the average number of active cycles.        
-          Maximum instance value is 33.71% above the average, while the minimum instance value is 26.63% below the      
+          Maximum instance value is 33.49% above the average, while the minimum instance value is 26.95% below the      
           average.                                                                                                      
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 20.57%                                                                                          
+    OPT   Est. Speedup: 20.59%                                                                                          
           One or more L1 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 32.18% above the average, while the minimum instance value is 24.01% below the      
+          Maximum instance value is 31.85% above the average, while the minimum instance value is 23.62% below the      
           average.                                                                                                      
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 9.139%                                                                                          
+    OPT   Est. Speedup: 6.877%                                                                                          
           One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 32.88% above the average, while the minimum instance value is 20.63% below the      
+          Maximum instance value is 13.54% above the average, while the minimum instance value is 7.54% below the       
           average.                                                                                                      
 
   linear_proj_kernel(const float *, const float *, float *, int, int) (32, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -239,16 +344,16 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         8.09
+    DRAM Frequency          cycle/nsecond         8.07
     SM Frequency            cycle/nsecond         1.92
-    Elapsed Cycles                  cycle        39974
-    Memory Throughput                   %        55.88
+    Elapsed Cycles                  cycle        40043
+    Memory Throughput                   %        56.31
     DRAM Throughput                     %         1.61
-    Duration                      usecond        20.86
-    L1/TEX Cache Throughput             %        86.44
-    L2 Cache Throughput                 %         8.25
-    SM Active Cycles                cycle     25738.92
-    Compute (SM) Throughput             %         4.58
+    Duration                      usecond        20.90
+    L1/TEX Cache Throughput             %        86.07
+    L2 Cache Throughput                 %         8.22
+    SM Active Cycles                cycle     25849.50
+    Compute (SM) Throughput             %         4.62
     ----------------------- ------------- ------------
 
     OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
@@ -298,12 +403,12 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        12.04
+    Achieved Occupancy                        %        12.05
     Achieved Active Warps Per SM           warp         5.78
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 81.94%                                                                                    
-          The difference between calculated theoretical (66.7%) and measured achieved occupancy (12.0%) can be the      
+    OPT   Est. Local Speedup: 81.92%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (12.1%) can be the      
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -320,143 +425,28 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Average DRAM Active Cycles       cycle         2724
     Total DRAM Elapsed Cycles        cycle       674816
-    Average L1 Active Cycles         cycle     25738.92
-    Total L1 Elapsed Cycles          cycle       955632
-    Average L2 Active Cycles         cycle     10092.06
-    Total L2 Elapsed Cycles          cycle       604592
-    Average SM Active Cycles         cycle     25738.92
-    Total SM Elapsed Cycles          cycle       955632
-    Average SMSP Active Cycles       cycle     24937.76
-    Total SMSP Elapsed Cycles        cycle      3822528
+    Average L1 Active Cycles         cycle     25849.50
+    Total L1 Elapsed Cycles          cycle       948312
+    Average L2 Active Cycles         cycle     10562.31
+    Total L2 Elapsed Cycles          cycle       605584
+    Average SM Active Cycles         cycle     25849.50
+    Total SM Elapsed Cycles          cycle       948312
+    Average SMSP Active Cycles       cycle     24946.82
+    Total SMSP Elapsed Cycles        cycle      3793248
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 20.77%                                                                                          
+    OPT   Est. Speedup: 20.83%                                                                                          
           One or more SMs have a much higher number of active cycles than the average number of active cycles. Maximum  
-          instance value is 32.12% above the average, while the minimum instance value is 23.71% below the average.     
+          instance value is 31.84% above the average, while the minimum instance value is 23.54% below the average.     
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 20.95%                                                                                          
+    OPT   Est. Speedup: 21.14%                                                                                          
           One or more SMSPs have a much higher number of active cycles than the average number of active cycles.        
-          Maximum instance value is 33.46% above the average, while the minimum instance value is 27.23% below the      
+          Maximum instance value is 33.49% above the average, while the minimum instance value is 26.57% below the      
           average.                                                                                                      
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 20.77%                                                                                          
+    OPT   Est. Speedup: 20.83%                                                                                          
           One or more L1 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 32.12% above the average, while the minimum instance value is 23.71% below the      
-          average.                                                                                                      
-
-  linear_proj_kernel(const float *, const float *, float *, int, int) (32, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
-    Section: GPU Speed Of Light Throughput
-    ----------------------- ------------- ------------
-    Metric Name               Metric Unit Metric Value
-    ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         8.06
-    SM Frequency            cycle/nsecond         1.91
-    Elapsed Cycles                  cycle        39797
-    Memory Throughput                   %        56.06
-    DRAM Throughput                     %         1.62
-    Duration                      usecond        20.80
-    L1/TEX Cache Throughput             %        86.83
-    L2 Cache Throughput                 %         9.06
-    SM Active Cycles                cycle     25625.33
-    Compute (SM) Throughput             %         4.60
-    ----------------------- ------------- ------------
-
-    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
-          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
-          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
-
-    Section: Launch Statistics
-    -------------------------------- --------------- ---------------
-    Metric Name                          Metric Unit    Metric Value
-    -------------------------------- --------------- ---------------
-    Block Size                                                  1024
-    Function Cache Configuration                     CachePreferNone
-    Grid Size                                                     32
-    Registers Per Thread             register/thread              40
-    Shared Memory Configuration Size           Kbyte            8.19
-    Driver Shared Memory Per Block       Kbyte/block            1.02
-    Dynamic Shared Memory Per Block       byte/block               0
-    Static Shared Memory Per Block       Kbyte/block            2.05
-    # SMs                                         SM              24
-    Threads                                   thread           32768
-    Uses Green Context                                             0
-    Waves Per SM                                                1.33
-    -------------------------------- --------------- ---------------
-
-    OPT   If you execute __syncthreads() to synchronize the threads of a block, it is recommended to have more than the 
-          achieved 1 blocks per multiprocessor. This way, blocks that aren't waiting for __syncthreads() can keep the   
-          hardware busy.                                                                                                
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 50%                                                                                             
-          A wave of thread blocks is defined as the maximum number of blocks that can be executed in parallel on the    
-          target GPU. The number of blocks in a wave depends on the number of multiprocessors and the theoretical       
-          occupancy of the kernel. This kernel launch results in 1 full waves and a partial wave of 7 thread blocks.    
-          Under the assumption of a uniform execution duration of all thread blocks, the partial wave may account for   
-          up to 50.0% of the total kernel runtime with a lower occupancy of 81.6%. Try launching a grid with no         
-          partial wave. The overall impact of this tail effect also lessens with the number of full waves executed for  
-          a grid. See the Hardware Model                                                                                
-          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-hw-model) description for more      
-          details on launch configurations.                                                                             
-
-    Section: Occupancy
-    ------------------------------- ----------- ------------
-    Metric Name                     Metric Unit Metric Value
-    ------------------------------- ----------- ------------
-    Block Limit SM                        block           24
-    Block Limit Registers                 block            1
-    Block Limit Shared Mem                block            2
-    Block Limit Warps                     block            1
-    Theoretical Active Warps per SM        warp           32
-    Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        12.23
-    Achieved Active Warps Per SM           warp         5.87
-    ------------------------------- ----------- ------------
-
-    OPT   Est. Local Speedup: 81.65%                                                                                    
-          The difference between calculated theoretical (66.7%) and measured achieved occupancy (12.2%) can be the      
-          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
-          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
-          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
-          optimizing occupancy.                                                                                         
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Local Speedup: 33.33%                                                                                    
-          The 8.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
-          hardware maximum of 12. This kernel's theoretical occupancy (66.7%) is limited by the number of required      
-          registers. This kernel's theoretical occupancy (66.7%) is limited by the number of warps within each block.   
-
-    Section: GPU and Memory Workload Distribution
-    -------------------------- ----------- ------------
-    Metric Name                Metric Unit Metric Value
-    -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle         2724
-    Total DRAM Elapsed Cycles        cycle       670720
-    Average L1 Active Cycles         cycle     25625.33
-    Total L1 Elapsed Cycles          cycle       952504
-    Average L2 Active Cycles         cycle     10808.62
-    Total L2 Elapsed Cycles          cycle       601840
-    Average SM Active Cycles         cycle     25625.33
-    Total SM Elapsed Cycles          cycle       952504
-    Average SMSP Active Cycles       cycle     24912.85
-    Total SMSP Elapsed Cycles        cycle      3810016
-    -------------------------- ----------- ------------
-
-    OPT   Est. Speedup: 20.68%                                                                                          
-          One or more SMs have a much higher number of active cycles than the average number of active cycles. Maximum  
-          instance value is 32.03% above the average, while the minimum instance value is 23.65% below the average.     
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 21.13%                                                                                          
-          One or more SMSPs have a much higher number of active cycles than the average number of active cycles.        
-          Maximum instance value is 33.66% above the average, while the minimum instance value is 26.95% below the      
-          average.                                                                                                      
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 20.68%                                                                                          
-          One or more L1 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 32.03% above the average, while the minimum instance value is 23.65% below the      
-          average.                                                                                                      
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 8.658%                                                                                          
-          One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 30.13% above the average, while the minimum instance value is 12.75% below the      
+          Maximum instance value is 31.84% above the average, while the minimum instance value is 23.54% below the      
           average.                                                                                                      
 
   qkt_kernel(const float *, const float *, float *, float) (4, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -464,15 +454,15 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         8.05
-    SM Frequency            cycle/nsecond         1.91
-    Elapsed Cycles                  cycle        37991
-    Memory Throughput                   %        14.90
+    DRAM Frequency          cycle/nsecond         8.08
+    SM Frequency            cycle/nsecond         1.92
+    Elapsed Cycles                  cycle        38038
+    Memory Throughput                   %        14.88
     DRAM Throughput                     %         0.73
-    Duration                      usecond        19.87
-    L1/TEX Cache Throughput             %        94.09
-    L2 Cache Throughput                 %         3.30
-    SM Active Cycles                cycle      5997.83
+    Duration                      usecond        19.84
+    L1/TEX Cache Throughput             %        94.04
+    L2 Cache Throughput                 %         0.27
+    SM Active Cycles                cycle      6001.29
     Compute (SM) Throughput             %         1.86
     ----------------------- ------------- ------------
 
@@ -529,28 +519,33 @@ Final Feature Checksum: 99.228035
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
     Average DRAM Active Cycles       cycle         1164
-    Total DRAM Elapsed Cycles        cycle       640000
-    Average L1 Active Cycles         cycle      5997.83
-    Total L1 Elapsed Cycles          cycle       909232
-    Average L2 Active Cycles         cycle      3955.50
-    Total L2 Elapsed Cycles          cycle       574624
-    Average SM Active Cycles         cycle      5997.83
-    Total SM Elapsed Cycles          cycle       909232
-    Average SMSP Active Cycles       cycle      5975.31
-    Total SMSP Elapsed Cycles        cycle      3636928
+    Total DRAM Elapsed Cycles        cycle       641024
+    Average L1 Active Cycles         cycle      6001.29
+    Total L1 Elapsed Cycles          cycle       909992
+    Average L2 Active Cycles         cycle      3647.38
+    Total L2 Elapsed Cycles          cycle       575296
+    Average SM Active Cycles         cycle      6001.29
+    Total SM Elapsed Cycles          cycle       909992
+    Average SMSP Active Cycles       cycle      5974.90
+    Total SMSP Elapsed Cycles        cycle      3639968
     -------------------------- ----------- ------------
 
     OPT   Est. Speedup: 13.2%                                                                                           
           One or more SMs have a much lower number of active cycles than the average number of active cycles. Maximum   
           instance value is 83.39% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 13.15%                                                                                          
+    OPT   Est. Speedup: 13.14%                                                                                          
           One or more SMSPs have a much lower number of active cycles than the average number of active cycles. Maximum 
           instance value is 83.40% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
     OPT   Est. Speedup: 13.2%                                                                                           
           One or more L1 Slices have a much lower number of active cycles than the average number of active cycles.     
           Maximum instance value is 83.39% above the average, while the minimum instance value is 100.00% below the     
+          average.                                                                                                      
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Speedup: 6.224%                                                                                          
+          One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
+          Maximum instance value is 61.36% above the average, while the minimum instance value is 55.12% below the      
           average.                                                                                                      
 
   softmax_kernel(float *) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -560,14 +555,14 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     DRAM Frequency          cycle/nsecond         8.06
     SM Frequency            cycle/nsecond         1.91
-    Elapsed Cycles                  cycle        32451
-    Memory Throughput                   %         3.86
+    Elapsed Cycles                  cycle        32481
+    Memory Throughput                   %         3.85
     DRAM Throughput                     %         0.73
     Duration                      usecond        16.96
-    L1/TEX Cache Throughput             %        74.13
-    L2 Cache Throughput                 %         3.86
-    SM Active Cycles                cycle      1273.67
-    Compute (SM) Throughput             %         0.23
+    L1/TEX Cache Throughput             %        73.34
+    L2 Cache Throughput                 %         3.85
+    SM Active Cycles                cycle      1274.21
+    Compute (SM) Throughput             %         0.24
     ----------------------- ------------- ------------
 
     OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.0 full      
@@ -609,12 +604,12 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %         8.86
-    Achieved Active Warps Per SM           warp         4.25
+    Achieved Occupancy                        %         8.78
+    Achieved Active Warps Per SM           warp         4.22
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 86.71%                                                                                    
-          The difference between calculated theoretical (66.7%) and measured achieved occupancy (8.9%) can be the       
+    OPT   Est. Local Speedup: 86.83%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (8.8%) can be the       
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -629,21 +624,21 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle         1000
+    Average DRAM Active Cycles       cycle          996
     Total DRAM Elapsed Cycles        cycle       546816
-    Average L1 Active Cycles         cycle      1273.67
-    Total L1 Elapsed Cycles          cycle       773496
-    Average L2 Active Cycles         cycle      7525.12
-    Total L2 Elapsed Cycles          cycle       490848
-    Average SM Active Cycles         cycle      1273.67
-    Total SM Elapsed Cycles          cycle       773496
-    Average SMSP Active Cycles       cycle      1234.91
-    Total SMSP Elapsed Cycles        cycle      3093984
+    Average L1 Active Cycles         cycle      1274.21
+    Total L1 Elapsed Cycles          cycle       768272
+    Average L2 Active Cycles         cycle      7439.06
+    Total L2 Elapsed Cycles          cycle       491232
+    Average SM Active Cycles         cycle      1274.21
+    Total SM Elapsed Cycles          cycle       768272
+    Average SMSP Active Cycles       cycle      1251.03
+    Total SMSP Elapsed Cycles        cycle      3073088
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 11.41%                                                                                          
+    OPT   Est. Speedup: 13.03%                                                                                          
           One or more L2 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 46.51% above the average, while the minimum instance value is 99.44% below the      
+          Maximum instance value is 53.77% above the average, while the minimum instance value is 94.34% below the      
           average.                                                                                                      
 
   av_kernel(const float *, const float *, float *) (4, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -652,15 +647,15 @@ Final Feature Checksum: 99.228035
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
     DRAM Frequency          cycle/nsecond            8
-    SM Frequency            cycle/nsecond         1.91
-    Elapsed Cycles                  cycle         7330
-    Memory Throughput                   %         9.33
-    DRAM Throughput                     %         3.79
-    Duration                      usecond         3.84
-    L1/TEX Cache Throughput             %        77.81
-    L2 Cache Throughput                 %         1.10
-    SM Active Cycles                cycle       904.75
-    Compute (SM) Throughput             %         9.33
+    SM Frequency            cycle/nsecond         1.89
+    Elapsed Cycles                  cycle         7452
+    Memory Throughput                   %         9.68
+    DRAM Throughput                     %         3.70
+    Duration                      usecond         3.94
+    L1/TEX Cache Throughput             %        76.25
+    L2 Cache Throughput                 %         1.09
+    SM Active Cycles                cycle       923.25
+    Compute (SM) Throughput             %         9.68
     ----------------------- ------------- ------------
 
     OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.2 full      
@@ -702,8 +697,8 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        65.06
-    Achieved Active Warps Per SM           warp        31.23
+    Achieved Occupancy                        %        64.15
+    Achieved Active Warps Per SM           warp        30.79
     ------------------------------- ----------- ------------
 
     OPT   Est. Local Speedup: 33.33%                                                                                    
@@ -716,33 +711,28 @@ Final Feature Checksum: 99.228035
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
     Average DRAM Active Cycles       cycle         1164
-    Total DRAM Elapsed Cycles        cycle       122880
-    Average L1 Active Cycles         cycle       904.75
-    Total L1 Elapsed Cycles          cycle       181024
-    Average L2 Active Cycles         cycle      1970.25
-    Total L2 Elapsed Cycles          cycle       110880
-    Average SM Active Cycles         cycle       904.75
-    Total SM Elapsed Cycles          cycle       181024
-    Average SMSP Active Cycles       cycle       888.39
-    Total SMSP Elapsed Cycles        cycle       724096
+    Total DRAM Elapsed Cycles        cycle       125952
+    Average L1 Active Cycles         cycle       923.25
+    Total L1 Elapsed Cycles          cycle       174616
+    Average L2 Active Cycles         cycle      2002.88
+    Total L2 Elapsed Cycles          cycle       112704
+    Average SM Active Cycles         cycle       923.25
+    Total SM Elapsed Cycles          cycle       174616
+    Average SMSP Active Cycles       cycle       895.98
+    Total SMSP Elapsed Cycles        cycle       698464
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 10%                                                                                             
+    OPT   Est. Speedup: 10.58%                                                                                          
           One or more SMs have a much lower number of active cycles than the average number of active cycles. Maximum   
-          instance value is 83.37% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 83.38% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 9.823%                                                                                          
+    OPT   Est. Speedup: 10.28%                                                                                          
           One or more SMSPs have a much lower number of active cycles than the average number of active cycles. Maximum 
-          instance value is 83.40% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 83.44% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 10%                                                                                             
+    OPT   Est. Speedup: 10.58%                                                                                          
           One or more L1 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 83.37% above the average, while the minimum instance value is 100.00% below the     
-          average.                                                                                                      
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 8.31%                                                                                           
-          One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 29.23% above the average, while the minimum instance value is 17.57% below the      
+          Maximum instance value is 83.38% above the average, while the minimum instance value is 100.00% below the     
           average.                                                                                                      
 
   residual_kernel(float *, const float *, int) (4, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -750,16 +740,16 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond            8
-    SM Frequency            cycle/nsecond         1.87
-    Elapsed Cycles                  cycle         3717
-    Memory Throughput                   %         6.98
-    DRAM Throughput                     %         6.98
-    Duration                      usecond         1.98
-    L1/TEX Cache Throughput             %        14.15
-    L2 Cache Throughput                 %         1.91
-    SM Active Cycles                cycle       301.54
-    Compute (SM) Throughput             %         1.17
+    DRAM Frequency          cycle/nsecond         7.75
+    SM Frequency            cycle/nsecond         1.86
+    Elapsed Cycles                  cycle         3761
+    Memory Throughput                   %         7.10
+    DRAM Throughput                     %         7.10
+    Duration                      usecond         2.02
+    L1/TEX Cache Throughput             %        14.11
+    L2 Cache Throughput                 %         1.83
+    SM Active Cycles                cycle       302.42
+    Compute (SM) Throughput             %         1.16
     ----------------------- ------------- ------------
 
     OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.2 full      
@@ -801,8 +791,8 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        58.86
-    Achieved Active Warps Per SM           warp        28.25
+    Achieved Occupancy                        %        59.11
+    Achieved Active Warps Per SM           warp        28.37
     ------------------------------- ----------- ------------
 
     OPT   Est. Local Speedup: 33.33%                                                                                    
@@ -815,33 +805,33 @@ Final Feature Checksum: 99.228035
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
     Average DRAM Active Cycles       cycle         1108
-    Total DRAM Elapsed Cycles        cycle        63488
-    Average L1 Active Cycles         cycle       301.54
-    Total L1 Elapsed Cycles          cycle        87384
-    Average L2 Active Cycles         cycle       741.69
-    Total L2 Elapsed Cycles          cycle        56128
-    Average SM Active Cycles         cycle       301.54
-    Total SM Elapsed Cycles          cycle        87384
-    Average SMSP Active Cycles       cycle       285.40
-    Total SMSP Elapsed Cycles        cycle       349536
+    Total DRAM Elapsed Cycles        cycle        62464
+    Average L1 Active Cycles         cycle       302.42
+    Total L1 Elapsed Cycles          cycle        88456
+    Average L2 Active Cycles         cycle       860.88
+    Total L2 Elapsed Cycles          cycle        56704
+    Average SM Active Cycles         cycle       302.42
+    Total SM Elapsed Cycles          cycle        88456
+    Average SMSP Active Cycles       cycle       286.19
+    Total SMSP Elapsed Cycles        cycle       353824
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 6.915%                                                                                          
+    OPT   Est. Speedup: 6.861%                                                                                          
           One or more SMs have a much lower number of active cycles than the average number of active cycles. Maximum   
-          instance value is 83.50% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 83.62% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 6.565%                                                                                          
+    OPT   Est. Speedup: 6.485%                                                                                          
           One or more SMSPs have a much lower number of active cycles than the average number of active cycles. Maximum 
-          instance value is 83.76% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 83.51% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 6.915%                                                                                          
+    OPT   Est. Speedup: 6.861%                                                                                          
           One or more L1 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 83.50% above the average, while the minimum instance value is 100.00% below the     
+          Maximum instance value is 83.62% above the average, while the minimum instance value is 100.00% below the     
           average.                                                                                                      
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 7.943%                                                                                          
+    OPT   Est. Speedup: 12.88%                                                                                          
           One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 37.57% above the average, while the minimum instance value is 25.98% below the      
+          Maximum instance value is 53.03% above the average, while the minimum instance value is 34.25% below the      
           average.                                                                                                      
 
   layer_norm_kernel(const float *, float *, int) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -849,15 +839,15 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         8.05
+    DRAM Frequency          cycle/nsecond         8.08
     SM Frequency            cycle/nsecond         1.91
-    Elapsed Cycles                  cycle        39063
-    Memory Throughput                   %         1.76
-    DRAM Throughput                     %         0.54
-    Duration                      usecond        20.42
-    L1/TEX Cache Throughput             %        44.15
-    L2 Cache Throughput                 %         1.51
-    SM Active Cycles                cycle      1549.25
+    Elapsed Cycles                  cycle        38417
+    Memory Throughput                   %         1.79
+    DRAM Throughput                     %         0.94
+    Duration                      usecond        20.06
+    L1/TEX Cache Throughput             %        44.96
+    L2 Cache Throughput                 %         1.54
+    SM Active Cycles                cycle      1521.25
     Compute (SM) Throughput             %         0.12
     ----------------------- ------------- ------------
 
@@ -900,12 +890,12 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %         2.65
-    Achieved Active Warps Per SM           warp         1.27
+    Achieved Occupancy                        %         2.68
+    Achieved Active Warps Per SM           warp         1.29
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 96.03%                                                                                    
-          The difference between calculated theoretical (66.7%) and measured achieved occupancy (2.6%) can be the       
+    OPT   Est. Local Speedup: 95.98%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (2.7%) can be the       
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -920,21 +910,21 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle          892
-    Total DRAM Elapsed Cycles        cycle       657408
-    Average L1 Active Cycles         cycle      1549.25
-    Total L1 Elapsed Cycles          cycle       935184
-    Average L2 Active Cycles         cycle      5334.88
-    Total L2 Elapsed Cycles          cycle       590720
-    Average SM Active Cycles         cycle      1549.25
-    Total SM Elapsed Cycles          cycle       935184
-    Average SMSP Active Cycles       cycle       397.81
-    Total SMSP Elapsed Cycles        cycle      3740736
+    Average DRAM Active Cycles       cycle         1524
+    Total DRAM Elapsed Cycles        cycle       648192
+    Average L1 Active Cycles         cycle      1521.25
+    Total L1 Elapsed Cycles          cycle       916408
+    Average L2 Active Cycles         cycle      5054.62
+    Total L2 Elapsed Cycles          cycle       581040
+    Average SM Active Cycles         cycle      1521.25
+    Total SM Elapsed Cycles          cycle       916408
+    Average SMSP Active Cycles       cycle       389.59
+    Total SMSP Elapsed Cycles        cycle      3665632
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 6.933%                                                                                          
+    OPT   Est. Speedup: 8.348%                                                                                          
           One or more L2 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 47.98% above the average, while the minimum instance value is 99.21% below the      
+          Maximum instance value is 59.98% above the average, while the minimum instance value is 99.17% below the      
           average.                                                                                                      
 
   conv1d_kernel(const float *, const float *, float *, int, int) (16, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -944,14 +934,14 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     DRAM Frequency          cycle/nsecond         8.09
     SM Frequency            cycle/nsecond         1.92
-    Elapsed Cycles                  cycle       434024
-    Memory Throughput                   %        61.12
-    DRAM Throughput                     %         1.38
-    Duration                      usecond       226.08
-    L1/TEX Cache Throughput             %        96.01
-    L2 Cache Throughput                 %        31.59
-    SM Active Cycles                cycle    276045.12
-    Compute (SM) Throughput             %         7.42
+    Elapsed Cycles                  cycle       434648
+    Memory Throughput                   %        61.02
+    DRAM Throughput                     %         3.85
+    Duration                      usecond       226.40
+    L1/TEX Cache Throughput             %        96.37
+    L2 Cache Throughput                 %        31.27
+    SM Active Cycles                cycle    275030.54
+    Compute (SM) Throughput             %         7.41
     ----------------------- ------------- ------------
 
     OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the L1 
@@ -995,8 +985,8 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        64.75
-    Achieved Active Warps Per SM           warp        31.08
+    Achieved Occupancy                        %        65.16
+    Achieved Active Warps Per SM           warp        31.28
     ------------------------------- ----------- ------------
 
     OPT   Est. Local Speedup: 33.33%                                                                                    
@@ -1008,29 +998,29 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle        25276
-    Total DRAM Elapsed Cycles        cycle      7317504
-    Average L1 Active Cycles         cycle    276045.12
-    Total L1 Elapsed Cycles          cycle     10406896
-    Average L2 Active Cycles         cycle    404101.25
-    Total L2 Elapsed Cycles          cycle      6564560
-    Average SM Active Cycles         cycle    276045.12
-    Total SM Elapsed Cycles          cycle     10406896
-    Average SMSP Active Cycles       cycle    275603.57
-    Total SMSP Elapsed Cycles        cycle     41627584
+    Average DRAM Active Cycles       cycle        70540
+    Total DRAM Elapsed Cycles        cycle      7327744
+    Average L1 Active Cycles         cycle    275030.54
+    Total L1 Elapsed Cycles          cycle     10425448
+    Average L2 Active Cycles         cycle    402538.50
+    Total L2 Elapsed Cycles          cycle      6573984
+    Average SM Active Cycles         cycle    275030.54
+    Total SM Elapsed Cycles          cycle     10425448
+    Average SMSP Active Cycles       cycle    274754.09
+    Total SMSP Elapsed Cycles        cycle     41701792
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 22.99%                                                                                          
+    OPT   Est. Speedup: 23.07%                                                                                          
           One or more SMs have a much lower number of active cycles than the average number of active cycles. Maximum   
-          instance value is 36.12% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 36.44% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 23.13%                                                                                          
+    OPT   Est. Speedup: 23.01%                                                                                          
           One or more SMSPs have a much lower number of active cycles than the average number of active cycles. Maximum 
           instance value is 36.39% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 22.99%                                                                                          
+    OPT   Est. Speedup: 23.07%                                                                                          
           One or more L1 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 36.12% above the average, while the minimum instance value is 100.00% below the     
+          Maximum instance value is 36.44% above the average, while the minimum instance value is 100.00% below the     
           average.                                                                                                      
 
   linear_proj_kernel(const float *, const float *, float *, int, int) (32, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -1040,13 +1030,13 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     DRAM Frequency          cycle/nsecond         8.09
     SM Frequency            cycle/nsecond         1.92
-    Elapsed Cycles                  cycle       139722
-    Memory Throughput                   %        63.60
+    Elapsed Cycles                  cycle       139588
+    Memory Throughput                   %        63.63
     DRAM Throughput                     %         1.77
-    Duration                      usecond        72.80
-    L1/TEX Cache Throughput             %        96.30
-    L2 Cache Throughput                 %        12.47
-    SM Active Cycles                cycle     92258.21
+    Duration                      usecond        72.74
+    L1/TEX Cache Throughput             %        96.54
+    L2 Cache Throughput                 %        12.49
+    SM Active Cycles                cycle     92023.75
     Compute (SM) Throughput             %         5.02
     ----------------------- ------------- ------------
 
@@ -1098,11 +1088,11 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %         9.52
-    Achieved Active Warps Per SM           warp         4.57
+    Achieved Occupancy                        %         9.54
+    Achieved Active Warps Per SM           warp         4.58
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 85.73%                                                                                    
+    OPT   Est. Local Speedup: 85.69%                                                                                    
           The difference between calculated theoretical (66.7%) and measured achieved occupancy (9.5%) can be the       
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
@@ -1118,35 +1108,30 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle        10404
-    Total DRAM Elapsed Cycles        cycle      2355200
-    Average L1 Active Cycles         cycle     92258.21
-    Total L1 Elapsed Cycles          cycle      3352680
-    Average L2 Active Cycles         cycle     82480.56
-    Total L2 Elapsed Cycles          cycle      2113056
-    Average SM Active Cycles         cycle     92258.21
-    Total SM Elapsed Cycles          cycle      3352680
-    Average SMSP Active Cycles       cycle     91347.82
-    Total SMSP Elapsed Cycles        cycle     13410720
+    Average DRAM Active Cycles       cycle        10408
+    Total DRAM Elapsed Cycles        cycle      2353152
+    Average L1 Active Cycles         cycle     92023.75
+    Total L1 Elapsed Cycles          cycle      3350792
+    Average L2 Active Cycles         cycle     89678.81
+    Total L2 Elapsed Cycles          cycle      2110224
+    Average SM Active Cycles         cycle     92023.75
+    Total SM Elapsed Cycles          cycle      3350792
+    Average SMSP Active Cycles       cycle     91344.52
+    Total SMSP Elapsed Cycles        cycle     13403168
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 21.79%                                                                                          
+    OPT   Est. Speedup: 21.8%                                                                                           
           One or more SMs have a much higher number of active cycles than the average number of active cycles. Maximum  
-          instance value is 32.99% above the average, while the minimum instance value is 24.69% below the average.     
+          instance value is 33.08% above the average, while the minimum instance value is 24.75% below the average.     
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 21.88%                                                                                          
+    OPT   Est. Speedup: 21.89%                                                                                          
           One or more SMSPs have a much higher number of active cycles than the average number of active cycles.        
-          Maximum instance value is 33.46% above the average, while the minimum instance value is 25.45% below the      
+          Maximum instance value is 33.46% above the average, while the minimum instance value is 25.44% below the      
           average.                                                                                                      
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 21.79%                                                                                          
+    OPT   Est. Speedup: 21.8%                                                                                           
           One or more L1 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 32.99% above the average, while the minimum instance value is 24.69% below the      
-          average.                                                                                                      
-    ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 5.421%                                                                                          
-          One or more L2 Slices have a much higher number of active cycles than the average number of active cycles.    
-          Maximum instance value is 8.68% above the average, while the minimum instance value is 3.95% below the        
+          Maximum instance value is 33.08% above the average, while the minimum instance value is 24.75% below the      
           average.                                                                                                      
 
   residual_kernel(float *, const float *, int) (4, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.9
@@ -1154,16 +1139,16 @@ Final Feature Checksum: 99.228035
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         8.13
-    SM Frequency            cycle/nsecond         1.90
-    Elapsed Cycles                  cycle         3707
-    Memory Throughput                   %         6.98
-    DRAM Throughput                     %         6.98
-    Duration                      usecond         1.95
-    L1/TEX Cache Throughput             %        14.11
-    L2 Cache Throughput                 %         1.84
-    SM Active Cycles                cycle       302.38
-    Compute (SM) Throughput             %         1.18
+    DRAM Frequency          cycle/nsecond         7.88
+    SM Frequency            cycle/nsecond         1.86
+    Elapsed Cycles                  cycle         3925
+    Memory Throughput                   %        17.60
+    DRAM Throughput                     %        17.60
+    Duration                      usecond         2.11
+    L1/TEX Cache Throughput             %        12.88
+    L2 Cache Throughput                 %         3.28
+    SM Active Cycles                cycle       331.17
+    Compute (SM) Throughput             %         1.17
     ----------------------- ------------- ------------
 
     OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.2 full      
@@ -1205,10 +1190,17 @@ Final Feature Checksum: 99.228035
     Block Limit Warps                     block            1
     Theoretical Active Warps per SM        warp           32
     Theoretical Occupancy                     %        66.67
-    Achieved Occupancy                        %        59.25
-    Achieved Active Warps Per SM           warp        28.44
+    Achieved Occupancy                        %        54.36
+    Achieved Active Warps Per SM           warp        26.09
     ------------------------------- ----------- ------------
 
+    OPT   Est. Local Speedup: 18.45%                                                                                    
+          The difference between calculated theoretical (66.7%) and measured achieved occupancy (54.4%) can be the      
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+    ----- --------------------------------------------------------------------------------------------------------------
     OPT   Est. Local Speedup: 33.33%                                                                                    
           The 8.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
           hardware maximum of 12. This kernel's theoretical occupancy (66.7%) is limited by the number of warps within  
@@ -1218,33 +1210,33 @@ Final Feature Checksum: 99.228035
     -------------------------- ----------- ------------
     Metric Name                Metric Unit Metric Value
     -------------------------- ----------- ------------
-    Average DRAM Active Cycles       cycle         1108
-    Total DRAM Elapsed Cycles        cycle        63488
-    Average L1 Active Cycles         cycle       302.38
-    Total L1 Elapsed Cycles          cycle        86584
-    Average L2 Active Cycles         cycle       481.44
-    Total L2 Elapsed Cycles          cycle        56000
-    Average SM Active Cycles         cycle       302.38
-    Total SM Elapsed Cycles          cycle        86584
-    Average SMSP Active Cycles       cycle       286.06
-    Total SMSP Elapsed Cycles        cycle       346336
+    Average DRAM Active Cycles       cycle         2928
+    Total DRAM Elapsed Cycles        cycle        66560
+    Average L1 Active Cycles         cycle       331.17
+    Total L1 Elapsed Cycles          cycle        87392
+    Average L2 Active Cycles         cycle       478.25
+    Total L2 Elapsed Cycles          cycle        59248
+    Average SM Active Cycles         cycle       331.17
+    Total SM Elapsed Cycles          cycle        87392
+    Average SMSP Active Cycles       cycle          287
+    Total SMSP Elapsed Cycles        cycle       349568
     -------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 6.994%                                                                                          
+    OPT   Est. Speedup: 7.61%                                                                                           
           One or more SMs have a much lower number of active cycles than the average number of active cycles. Maximum   
-          instance value is 83.45% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 83.67% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 6.626%                                                                                          
+    OPT   Est. Speedup: 6.582%                                                                                          
           One or more SMSPs have a much lower number of active cycles than the average number of active cycles. Maximum 
-          instance value is 83.56% above the average, while the minimum instance value is 100.00% below the average.    
+          instance value is 83.52% above the average, while the minimum instance value is 100.00% below the average.    
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 6.994%                                                                                          
+    OPT   Est. Speedup: 7.61%                                                                                           
           One or more L1 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 83.45% above the average, while the minimum instance value is 100.00% below the     
+          Maximum instance value is 83.67% above the average, while the minimum instance value is 100.00% below the     
           average.                                                                                                      
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 6.028%                                                                                          
+    OPT   Est. Speedup: 7.53%                                                                                           
           One or more L2 Slices have a much lower number of active cycles than the average number of active cycles.     
-          Maximum instance value is 43.82% above the average, while the minimum instance value is 91.28% below the      
+          Maximum instance value is 58.30% above the average, while the minimum instance value is 91.22% below the      
           average.                                                                                                      
 
