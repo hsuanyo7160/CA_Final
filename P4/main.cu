@@ -1,23 +1,29 @@
-// =====================================================================
-// VITS Text Encoder - Part 4: CUDA SIMT Implementation
+
+// VITS Text Encoder - Part 4: CUDA SIMT Implementation (修正版)
 // Advanced Computer Architecture Final Project
 //
+// 本版修正:
+//   [1] 初始化順序對齊 CPU 版 (Part 1-3): 先權重後 x
+//       -> checksum 可與 Part 1 的 99.2277 直接比對 (僅差浮點誤差)
+//   [2] linear_proj 改用「靜態」shared memory (__shared__ float s_in[FILTER_DIM])
+//       -> ptxas -v 會直接顯示 smem 用量, 報告有素材
+//       (動態 extern __shared__ 的大小是執行期決定, 不會出現在編譯期 ptxas info)
+//
 // 硬性規定:
-//   - SIMT 模型: 每個 GPU thread 負責一個 output task (一個 iteration)
-//   - Shared memory: 對重複讀取的資料 (linear_proj 的 in_row) 用 __shared__
-//   - 編譯加 -Xptxas -v 觀察每 thread 暫存器用量
-//   - 產生 .ptx 判斷 memory-intensive / compute-intensive
-//   - ncu 調整 block size 觀察 occupancy 與效能
+//   - SIMT: 每個 thread 負責一個 output task
+//   - Shared memory: linear_proj 的 in_row 被該 token 所有 output 重複讀 -> 載入 shared
+//   - 編譯加 -Xptxas -v 觀察暫存器 / shared memory 用量
+//   - 產生 .ptx 判斷 memory / compute-intensive
+//   - ncu 調整 block size 觀察 occupancy
 //
 // 編譯:
-//   nvcc -O2 -arch=sm_75 -Xptxas -v \
-//       text_encoder_part4.cu -o text_encoder_part4
+//   nvcc -O2 -arch=sm_75 -Xptxas -v text_encoder_part4.cu -o text_encoder_part4
 //   (sm_75 換成你 GPU 的 compute capability)
 //
-// 產生 PTX 分析指令類型:
+// 產生 PTX:
 //   nvcc -arch=sm_75 -ptx text_encoder_part4.cu -o text_encoder_part4.ptx
 //
-// Nsight Compute 分析 (occupancy / block size 掃描):
+// Nsight Compute:
 //   ncu --set full ./text_encoder_part4
 // =====================================================================
 
@@ -37,8 +43,7 @@
 #define FILTER_DIM  512
 #define KERNEL_SIZE 3
 
-// Block size 旋鈕: Part 4 用來掃描 occupancy / 效能
-//   改這一行即可做 block size 實驗 (128 / 256 / 512 ...)
+// Block size 旋鈕 (Part 4: 掃描 occupancy / 效能)
 #define BLOCK_SIZE  256
 
 // ---------------------------------------------------------------------
@@ -55,33 +60,35 @@
     } while (0)
 
 // =====================================================================
-// Kernel: Linear Projection (主角, 含 shared memory 優化)
+// Kernel: Linear Projection (主角, 靜態 shared memory)
 //   out[i][d] = Σ_k in[i][k] * W[d][k]
 //
 //   配置: 一個 block 負責一個 token i; block 內 threads strip over d
 //   shared memory: in[i][0..in_dim-1] 被該 token 所有 output 重複讀
-//                  -> 協作載入一次到 s_in, 省去重複 global memory 存取
+//                  -> 協作載入一次到 s_in, 之後從 shared 讀
+//   靜態宣告 s_in[FILTER_DIM]: 開最大需求 (FFN 降維時 in_dim=512)
+//                              -> ptxas -v 會顯示 2048 bytes smem
 // =====================================================================
 __global__ void linear_proj_kernel(const float* __restrict__ in,
                                    const float* __restrict__ W,
                                    float* __restrict__ out,
                                    int in_dim, int out_dim) {
-    extern __shared__ float s_in[];          // 大小 = in_dim * sizeof(float)
-    int i   = blockIdx.x;                     // token index
+    __shared__ float s_in[FILTER_DIM];        // 靜態 shared memory
+    int i   = blockIdx.x;                      // token index
     int tid = threadIdx.x;
 
-    // 協作載入 in_row 到 shared memory
+    // 協作載入 in_row 到 shared
     for (int k = tid; k < in_dim; k += blockDim.x) {
         s_in[k] = in[i * in_dim + k];
     }
-    __syncthreads();
+    __syncthreads();                           // 確保 in_row 全載入後才計算
 
     // 每個 thread 負責一個 (或數個) output d
     for (int d = tid; d < out_dim; d += blockDim.x) {
         const float* w_row = &W[d * in_dim];
         float sum = 0.0f;
         for (int k = 0; k < in_dim; ++k) {
-            sum += s_in[k] * w_row[k];        // in_row 來自 shared
+            sum += s_in[k] * w_row[k];         // in_row 來自 shared
         }
         out[i * out_dim + d] = sum;
     }
@@ -89,7 +96,6 @@ __global__ void linear_proj_kernel(const float* __restrict__ in,
 
 // =====================================================================
 // Kernel: Q * K^T  (1 thread = 1 個 score[h][i][j])
-//   score[h][i][j] = scale * Σ_d Q[i][h][d] * K[j][h][d]
 // =====================================================================
 __global__ void qkt_kernel(const float* __restrict__ Q,
                            const float* __restrict__ K,
@@ -113,6 +119,7 @@ __global__ void qkt_kernel(const float* __restrict__ Q,
 
 // =====================================================================
 // Kernel: Softmax  (1 thread = 1 個 row (h,i), loop over j)
+//   一 thread 處理整個 row, 無 block 內協作 -> 不需 __syncthreads()
 // =====================================================================
 __global__ void softmax_kernel(float* __restrict__ scores) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -136,7 +143,6 @@ __global__ void softmax_kernel(float* __restrict__ scores) {
 
 // =====================================================================
 // Kernel: Attn * V  (1 thread = 1 個 out[h][i][d])
-//   out[i][h][d] = Σ_j scores[h][i][j] * V[j][h][d]
 // =====================================================================
 __global__ void av_kernel(const float* __restrict__ scores,
                          const float* __restrict__ V,
@@ -160,6 +166,7 @@ __global__ void av_kernel(const float* __restrict__ scores,
 
 // =====================================================================
 // Kernel: Layer Normalization  (1 thread = 1 個 token, loop over dim)
+//   一 thread 處理整個 token row -> 不需 __syncthreads()
 // =====================================================================
 __global__ void layer_norm_kernel(const float* __restrict__ in,
                                  float* __restrict__ out, int dim) {
@@ -214,7 +221,7 @@ __global__ void conv1d_kernel(const float* __restrict__ in,
 }
 
 // =====================================================================
-// Kernel: Residual add  (elementwise: x += y)
+// Kernel: Residual add  (1 thread = 1 元素, 獨立位址無 race)
 // =====================================================================
 __global__ void residual_kernel(float* __restrict__ x,
                                const float* __restrict__ y, int n) {
@@ -222,8 +229,6 @@ __global__ void residual_kernel(float* __restrict__ x,
     if (idx < n) x[idx] += y[idx];
 }
 
-// ---------------------------------------------------------------------
-// Host helpers
 // ---------------------------------------------------------------------
 static inline int grid_for(int total) { return (total + BLOCK_SIZE - 1) / BLOCK_SIZE; }
 
@@ -236,15 +241,18 @@ void init_random(std::vector<float>& v) {
 int main() {
     srand(42);
 
-    // --- Host 端初始化權重與輸入 ---
-    std::vector<float> h_x(SEQ_LEN * HIDDEN_DIM);
+    // --- Host 初始化 ---
+    //  ★ 順序對齊 CPU 版 (Part 1-3): 先權重, x 最後
+    //    確保 rand() 序列分配與 CPU 一致, checksum 可直接比對
     std::vector<float> h_Wq(HIDDEN_DIM * HIDDEN_DIM), h_Wk(HIDDEN_DIM * HIDDEN_DIM),
                        h_Wv(HIDDEN_DIM * HIDDEN_DIM);
     std::vector<float> h_conv_w(FILTER_DIM * HIDDEN_DIM * KERNEL_SIZE);
     std::vector<float> h_proj_w(HIDDEN_DIM * FILTER_DIM);
-    init_random(h_x);
+    std::vector<float> h_x(SEQ_LEN * HIDDEN_DIM);
+
     init_random(h_Wq); init_random(h_Wk); init_random(h_Wv);
     init_random(h_conv_w); init_random(h_proj_w);
+    init_random(h_x);     // x 最後初始化 (對齊 CPU 版)
 
     // --- Device buffers ---
     const int HID = SEQ_LEN * HIDDEN_DIM;
@@ -269,16 +277,15 @@ int main() {
     CUDA_CHECK(cudaMalloc(&d_conv_w, FILTER_DIM * HIDDEN_DIM * KERNEL_SIZE * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_proj_w, HIDDEN_DIM * FILTER_DIM * sizeof(float)));
 
-    CUDA_CHECK(cudaMemcpy(d_x,     h_x.data(),     HID * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_Wq,    h_Wq.data(),    h_Wq.size() * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_Wk,    h_Wk.data(),    h_Wk.size() * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_Wv,    h_Wv.data(),    h_Wv.size() * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_x,      h_x.data(),      HID * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_Wq,     h_Wq.data(),     h_Wq.size() * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_Wk,     h_Wk.data(),     h_Wk.size() * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_Wv,     h_Wv.data(),     h_Wv.size() * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_conv_w, h_conv_w.data(), h_conv_w.size() * sizeof(float), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_proj_w, h_proj_w.data(), h_proj_w.size() * sizeof(float), cudaMemcpyHostToDevice));
 
     float scale = 1.0f / sqrtf((float)HEAD_DIM);
 
-    // --- 計時 (整個 forward) ---
     cudaEvent_t t0, t1;
     CUDA_CHECK(cudaEventCreate(&t0));
     CUDA_CHECK(cudaEventCreate(&t1));
@@ -287,34 +294,23 @@ int main() {
     printf("Starting VITS Text Encoder Simulation (Part 4 CUDA SIMT)...\n");
 
     // ---- Encoder Block ----
-    // 1. LayerNorm 1
     layer_norm_kernel<<<grid_for(SEQ_LEN), BLOCK_SIZE>>>(d_x, d_norm1, HIDDEN_DIM);
 
-    // 2. Q/K/V 投影 (shared memory; 一個 block 一個 token)
-    size_t shmem = HIDDEN_DIM * sizeof(float);
-    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE, shmem>>>(d_norm1, d_Wq, d_Q, HIDDEN_DIM, HIDDEN_DIM);
-    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE, shmem>>>(d_norm1, d_Wk, d_K, HIDDEN_DIM, HIDDEN_DIM);
-    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE, shmem>>>(d_norm1, d_Wv, d_V, HIDDEN_DIM, HIDDEN_DIM);
+    // 靜態 shared memory -> 不再傳第三參數
+    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_norm1, d_Wq, d_Q, HIDDEN_DIM, HIDDEN_DIM);
+    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_norm1, d_Wk, d_K, HIDDEN_DIM, HIDDEN_DIM);
+    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_norm1, d_Wv, d_V, HIDDEN_DIM, HIDDEN_DIM);
 
-    // 3. Attention: QK^T -> softmax -> AV
     qkt_kernel<<<grid_for(NUM_HEADS * SEQ_LEN * SEQ_LEN), BLOCK_SIZE>>>(d_Q, d_K, d_scores, scale);
     softmax_kernel<<<grid_for(NUM_HEADS * SEQ_LEN), BLOCK_SIZE>>>(d_scores);
     av_kernel<<<grid_for(NUM_HEADS * SEQ_LEN * HEAD_DIM), BLOCK_SIZE>>>(d_scores, d_V, d_attn);
 
-    // Residual 1
     residual_kernel<<<grid_for(HID), BLOCK_SIZE>>>(d_x, d_attn, HID);
 
-    // 4. LayerNorm 2
     layer_norm_kernel<<<grid_for(SEQ_LEN), BLOCK_SIZE>>>(d_x, d_norm2, HIDDEN_DIM);
-
-    // 5. FFN 升維 (Conv1d)
     conv1d_kernel<<<grid_for(SEQ_LEN * FILTER_DIM), BLOCK_SIZE>>>(d_norm2, d_conv_w, d_ffn, HIDDEN_DIM, FILTER_DIM);
+    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_ffn, d_proj_w, d_proj, FILTER_DIM, HIDDEN_DIM);
 
-    // 6. FFN 降維投影 (shared memory; in_dim = FILTER_DIM)
-    size_t shmem2 = FILTER_DIM * sizeof(float);
-    linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE, shmem2>>>(d_ffn, d_proj_w, d_proj, FILTER_DIM, HIDDEN_DIM);
-
-    // Residual 2
     residual_kernel<<<grid_for(HID), BLOCK_SIZE>>>(d_x, d_proj, HID);
 
     CUDA_CHECK(cudaEventRecord(t1));
@@ -324,7 +320,6 @@ int main() {
     float ms = 0.0f;
     CUDA_CHECK(cudaEventElapsedTime(&ms, t0, t1));
 
-    // --- 拷回結果, 算 checksum (防死碼刪除) ---
     std::vector<float> h_out(HID);
     CUDA_CHECK(cudaMemcpy(h_out.data(), d_x, HID * sizeof(float), cudaMemcpyDeviceToHost));
 
@@ -336,7 +331,6 @@ int main() {
     printf("Kernel time: %.4f ms\n", ms);
     printf("Final Feature Checksum: %f\n", checksum);
 
-    // --- 釋放 ---
     cudaFree(d_x); cudaFree(d_norm1); cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V);
     cudaFree(d_scores); cudaFree(d_attn); cudaFree(d_norm2); cudaFree(d_ffn); cudaFree(d_proj);
     cudaFree(d_Wq); cudaFree(d_Wk); cudaFree(d_Wv); cudaFree(d_conv_w); cudaFree(d_proj_w);
