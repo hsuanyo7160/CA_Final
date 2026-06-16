@@ -1,29 +1,26 @@
 // =====================================================================
-// VITS Text Encoder - Part 2: RVV Vector Reduction
+// VITS Text Encoder - Part 2: RVV Vector Reduction (inline asm)
 // Advanced Computer Architecture Final Project
 //
-// 硬性規定: 使用 Vector Reduction Operations (vfredusum.vs)
-//           將向量暫存器元素折疊為純量
+// 不使用 <riscv_vector.h>; 全部以 inline asm 撰寫 RVV reduction
+// 硬性規定: 使用 vfredusum.vs 將向量元素折疊為純量
 //
-// 向量化策略 (本 Part 聚焦「連續記憶體 + reduction」):
-//   - layer_norm   : sum / sq_sum  -> RVV reduction
-//   - linear_proj  : Q/K/V 投影的 dot product -> RVV reduction
-//   - attention    : Q*K^T 的 dot product      -> RVV reduction
-//   - ffn 降維投影  : Σ ffn*proj_w               -> RVV reduction
+// 格式參考教授範例:
+//   - 操作數以指標傳入 (input operands), 結果用 fsw 寫回
+//   - vsetvli 設定 e32/m1/ta/ma
+//   - reduction 三步: vmv.v.i v0,0 -> vfredusum.vs -> vfmv.f.s
+//   - clobber 列出純量/浮點暫存器 + "memory"
+//   - 額外: 加 strip-mining 迴圈處理 n > VLEN 的大向量 (自動分塊)
 //
-//   (Attn*V 與 conv1d 因含 strided access, 刻意留給 Part 3)
-//
-// 編譯:
+// 編譯 (仍需 -march 讓 assembler 認得向量指令, 但不需 header):
 //   riscv64-linux-gnu-g++ -O2 -march=rv64gcv \
 //       text_encoder_part2.cpp -o text_encoder_part2
-//   (GCC >= 13 才有穩定的 RVV v1.0 intrinsics)
 // =====================================================================
 
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cstdlib>
-#include <riscv_vector.h>
 
 // ---------------------------------------------------------------------
 // 模型超參數
@@ -36,61 +33,102 @@ const int FILTER_DIM = 512;
 const int KERNEL_SIZE = 3;
 
 // =====================================================================
-// RVV Reduction 核心工具
+// RVV Reduction 核心工具 (inline asm)
+//
+// 共同結構:
+//   [init]  vsetvli 取 vlmax -> vmv.v.i v8,0 (向量累加器歸零)
+//   [loop]  vsetvli t0, 剩餘長度 -> 載入 -> 運算 -> 指標前進 -> 遞減
+//   [final] vsetvli 取 vlmax -> vfredusum.vs 折疊 -> vfmv.f.s -> fsw
+//
+// 註: 迴圈用 t2(剩餘) / t3,t4(指標) 為可變副本, 原始 operand 維持唯讀
 // =====================================================================
 
 // 純加總: result = Σ a[0..n-1]
-//   多個 block 先用 vfadd 累加到向量, 最後一次 vfredusum 折疊為純量
 static inline float reduce_sum_rvv(const float* a, size_t n) {
-    size_t vlmax = __riscv_vsetvlmax_e32m1();
-    vfloat32m1_t vacc = __riscv_vfmv_v_f_f32m1(0.0f, vlmax);
-
-    size_t vl;
-    for (size_t i = 0; i < n; i += vl) {
-        vl = __riscv_vsetvl_e32m1(n - i);
-        vfloat32m1_t va = __riscv_vle32_v_f32m1(a + i, vl);
-        vacc = __riscv_vfadd_vv_f32m1(vacc, va, vl);   // block 部分和
-    }
-    // 最終 reduction: 把向量累加器折疊成純量
-    vfloat32m1_t vzero = __riscv_vfmv_v_f_f32m1(0.0f, 1);
-    vfloat32m1_t vred  = __riscv_vfredusum_vs_f32m1_f32m1(vacc, vzero, vlmax);
-    return __riscv_vfmv_f_s_f32m1_f32(vred);
+    float result = 0.0f;
+    asm volatile(
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // vlmax
+        "vmv.v.i      v8, 0                        \n\t"  // 累加器歸零
+        "mv           t2, %[n]                     \n\t"  // 剩餘元素
+        "mv           t3, %[a]                     \n\t"  // 可變指標
+        "1:                                        \n\t"
+        "vsetvli      t0, t2, e32, m1, ta, ma     \n\t"  // vl = min(剩餘, vlmax)
+        "vle32.v      v1, (t3)                     \n\t"  // 載入一塊
+        "vfadd.vv     v8, v8, v1                   \n\t"  // 部分和累加
+        "slli         t1, t0, 2                    \n\t"  // vl * 4 bytes
+        "add          t3, t3, t1                   \n\t"  // 指標前進
+        "sub          t2, t2, t0                   \n\t"  // 剩餘遞減
+        "bnez         t2, 1b                       \n\t"
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // 折疊用 vlmax
+        "vmv.v.i      v0, 0                        \n\t"  // reduction 初始 scalar
+        "vfredusum.vs v4, v8, v0                   \n\t"  // v4[0] = Σ v8
+        "vfmv.f.s     ft1, v4                       \n\t"  // 取出 element 0
+        "fsw          ft1, (%[res])                 \n\t"  // 寫回
+        :
+        : [a] "r"(a), [n] "r"(n), [res] "r"(&result)
+        : "t0", "t1", "t2", "t3", "ft1", "memory"
+    );
+    return result;
 }
 
 // 點積: result = Σ a[k] * b[k]
-//   用 vfmacc 累加部分積, 最後 vfredusum 折疊
 static inline float dot_rvv(const float* a, const float* b, size_t n) {
-    size_t vlmax = __riscv_vsetvlmax_e32m1();
-    vfloat32m1_t vacc = __riscv_vfmv_v_f_f32m1(0.0f, vlmax);
-
-    size_t vl;
-    for (size_t i = 0; i < n; i += vl) {
-        vl = __riscv_vsetvl_e32m1(n - i);
-        vfloat32m1_t va = __riscv_vle32_v_f32m1(a + i, vl);
-        vfloat32m1_t vb = __riscv_vle32_v_f32m1(b + i, vl);
-        vacc = __riscv_vfmacc_vv_f32m1(vacc, va, vb, vl);  // 部分積累加
-    }
-    vfloat32m1_t vzero = __riscv_vfmv_v_f_f32m1(0.0f, 1);
-    vfloat32m1_t vred  = __riscv_vfredusum_vs_f32m1_f32m1(vacc, vzero, vlmax);
-    return __riscv_vfmv_f_s_f32m1_f32(vred);
+    float result = 0.0f;
+    asm volatile(
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // vlmax
+        "vmv.v.i      v8, 0                        \n\t"  // 累加器歸零
+        "mv           t2, %[n]                     \n\t"  // 剩餘元素
+        "mv           t3, %[a]                     \n\t"  // 可變指標 a
+        "mv           t4, %[b]                     \n\t"  // 可變指標 b
+        "1:                                        \n\t"
+        "vsetvli      t0, t2, e32, m1, ta, ma     \n\t"  // vl = min(剩餘, vlmax)
+        "vle32.v      v1, (t3)                     \n\t"  // 載入 a 一塊
+        "vle32.v      v2, (t4)                     \n\t"  // 載入 b 一塊
+        "vfmacc.vv    v8, v1, v2                   \n\t"  // 部分積累加 v8 += a*b
+        "slli         t1, t0, 2                    \n\t"  // vl * 4 bytes
+        "add          t3, t3, t1                   \n\t"
+        "add          t4, t4, t1                   \n\t"
+        "sub          t2, t2, t0                   \n\t"
+        "bnez         t2, 1b                       \n\t"
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // 折疊用 vlmax
+        "vmv.v.i      v0, 0                        \n\t"  // reduction 初始 scalar
+        "vfredusum.vs v4, v8, v0                   \n\t"  // v4[0] = Σ v8
+        "vfmv.f.s     ft1, v4                       \n\t"
+        "fsw          ft1, (%[res])                 \n\t"
+        :
+        : [a] "r"(a), [b] "r"(b), [n] "r"(n), [res] "r"(&result)
+        : "t0", "t1", "t2", "t3", "t4", "ft1", "memory"
+    );
+    return result;
 }
 
 // (x - mean)^2 的加總: result = Σ (a[k] - mean)^2
-//   block 內先 vfsub 再 vfmacc 自乘累加, 最後 vfredusum
 static inline float reduce_sq_diff_rvv(const float* a, float mean, size_t n) {
-    size_t vlmax = __riscv_vsetvlmax_e32m1();
-    vfloat32m1_t vacc = __riscv_vfmv_v_f_f32m1(0.0f, vlmax);
-
-    size_t vl;
-    for (size_t i = 0; i < n; i += vl) {
-        vl = __riscv_vsetvl_e32m1(n - i);
-        vfloat32m1_t va = __riscv_vle32_v_f32m1(a + i, vl);
-        vfloat32m1_t vd = __riscv_vfsub_vf_f32m1(va, mean, vl);  // x - mean
-        vacc = __riscv_vfmacc_vv_f32m1(vacc, vd, vd, vl);        // 累加 (x-mean)^2
-    }
-    vfloat32m1_t vzero = __riscv_vfmv_v_f_f32m1(0.0f, 1);
-    vfloat32m1_t vred  = __riscv_vfredusum_vs_f32m1_f32m1(vacc, vzero, vlmax);
-    return __riscv_vfmv_f_s_f32m1_f32(vred);
+    float result = 0.0f;
+    asm volatile(
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // vlmax
+        "vmv.v.i      v8, 0                        \n\t"  // 累加器歸零
+        "mv           t2, %[n]                     \n\t"  // 剩餘元素
+        "mv           t3, %[a]                     \n\t"  // 可變指標
+        "1:                                        \n\t"
+        "vsetvli      t0, t2, e32, m1, ta, ma     \n\t"  // vl = min(剩餘, vlmax)
+        "vle32.v      v1, (t3)                     \n\t"  // 載入一塊
+        "vfsub.vf     v2, v1, %[mean]              \n\t"  // v2 = a - mean
+        "vfmacc.vv    v8, v2, v2                   \n\t"  // 累加 (a-mean)^2
+        "slli         t1, t0, 2                    \n\t"
+        "add          t3, t3, t1                   \n\t"
+        "sub          t2, t2, t0                   \n\t"
+        "bnez         t2, 1b                       \n\t"
+        "vsetvli      t0, zero, e32, m1, ta, ma   \n\t"  // 折疊用 vlmax
+        "vmv.v.i      v0, 0                        \n\t"  // reduction 初始 scalar
+        "vfredusum.vs v4, v8, v0                   \n\t"  // v4[0] = Σ v8
+        "vfmv.f.s     ft1, v4                       \n\t"
+        "fsw          ft1, (%[res])                 \n\t"
+        :
+        : [a] "r"(a), [mean] "f"(mean), [n] "r"(n), [res] "r"(&result)
+        : "t0", "t1", "t2", "t3", "ft1", "memory"
+    );
+    return result;
 }
 
 // ---------------------------------------------------------------------
@@ -127,12 +165,10 @@ void layer_norm(const std::vector<float>& input, std::vector<float>& output,
         int offset = i * dim;
         const float* row = &input[offset];
 
-        // Reduction 1: mean
-        float sum = reduce_sum_rvv(row, dim);
+        float sum = reduce_sum_rvv(row, dim);            // Reduction 1: mean
         float mean = sum / dim;
 
-        // Reduction 2: variance
-        float sq_sum = reduce_sq_diff_rvv(row, mean, dim);
+        float sq_sum = reduce_sq_diff_rvv(row, mean, dim); // Reduction 2: variance
         float var = sq_sum / dim;
 
         float inv_std = 1.0f / std::sqrt(var + 1e-5f);
@@ -144,7 +180,6 @@ void layer_norm(const std::vector<float>& input, std::vector<float>& output,
 
 // =====================================================================
 // 線性投影 (RVV reduction): out[i][d] = Σ_k in[i][k] * W[d][k]
-//   in 連續, W 同列連續 -> 兩條 unit-stride load, 完美對應 dot_rvv
 // =====================================================================
 void linear_proj(const std::vector<float>& input, const std::vector<float>& W,
                  std::vector<float>& output, int in_dim, int out_dim) {
@@ -181,7 +216,7 @@ void multi_head_attention(const std::vector<float>& input,
             std::vector<float> scores(SEQ_LEN, 0.0f);
             float max_score = -1e9f;
 
-            // 1. Q * K^T  (head 內 HEAD_DIM 連續 -> RVV reduction)
+            // 1. Q * K^T (head 內 HEAD_DIM 連續 -> RVV reduction)
             const float* q_ptr = &Q[i * HIDDEN_DIM + head_offset];
             for (int j = 0; j < SEQ_LEN; ++j) {
                 const float* k_ptr = &K[j * HIDDEN_DIM + head_offset];
@@ -200,7 +235,7 @@ void multi_head_attention(const std::vector<float>& input,
                 scores[j] /= sum_exp;
             }
 
-            // 3. Attn * V  (對 j 步進讀 V -> strided, 留 Part 3, 此處 scalar)
+            // 3. Attn * V (對 j 步進讀 V -> strided, 留 Part 3, 此處 scalar)
             for (int d = 0; d < HEAD_DIM; ++d) {
                 float out_val = 0.0f;
                 for (int j = 0; j < SEQ_LEN; ++j) {
@@ -213,8 +248,7 @@ void multi_head_attention(const std::vector<float>& input,
 }
 
 // =====================================================================
-// 1D Convolution (FFN 升維): 保留 scalar
-//   weight 對 ic 步進為 KERNEL_SIZE -> strided, 留 Part 3
+// 1D Convolution (FFN 升維): 保留 scalar (strided weight -> Part 3)
 // =====================================================================
 void ffn_conv1d(const std::vector<float>& input, std::vector<float>& output,
                 const std::vector<float>& weights, int in_dim, int out_dim) {
@@ -277,7 +311,7 @@ int main() {
     std::vector<float> x(SEQ_LEN * HIDDEN_DIM);
     init_random(x);
 
-    std::cout << "Starting VITS Text Encoder Simulation (Part 2 RVV)..." << std::endl;
+    std::cout << "Starting VITS Text Encoder Simulation (Part 2 RVV asm)..." << std::endl;
 
     vits_encoder_block(x, w);
 
