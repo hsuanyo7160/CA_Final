@@ -1,0 +1,78 @@
+//======================== STAGE 1 ========================//
+Encoder Simulation Completed.
+Final Feature Checksum: 99.2277
+Exiting @ tick 213148327000 because exiting with last active thread context
+grep -E "simSeconds|simTicks|numCycles|simInsts|simOps|hostSeconds|overallMisses|overallMissRate" m5out/stats.txt
+simSeconds                                   0.213148                       # Number of seconds simulated (Second)
+simTicks                                 213148327000                       # Number of ticks simulated (Tick)
+hostSeconds                                     66.81                       # Real time elapsed on the host (Second)
+simInsts                                     88696272                       # Number of instructions simulated (Count)
+simOps                                       89011707                       # Number of ops (including micro ops) simulated (Count)
+system.cpu.numCycles                        426296654                       # Number of cpu cycles simulated (Cycle)
+system.cpu.dcache.overallMisses::cpu.data      1357150                       # number of overall misses (Count)
+system.cpu.dcache.overallMisses::total        1357150                       # number of overall misses (Count)
+system.cpu.dcache.overallMissRate::cpu.data     0.046023                       # miss rate for overall accesses (Ratio)
+system.cpu.dcache.overallMissRate::total     0.046023                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMisses::cpu.inst         1542                       # number of overall misses (Count)
+system.cpu.icache.overallMisses::total           1542                       # number of overall misses (Count)
+system.cpu.icache.overallMissRate::cpu.inst     0.000014                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMissRate::total     0.000014                       # miss rate for overall accesses (Ratio)
+
+
+//======================== STAGE 2 ========================//
+Encoder Simulation Completed.
+Final Feature Checksum: 99.2277
+Exiting @ tick 200431350000 because exiting with last active thread context
+grep -E "simSeconds|simTicks|numCycles|simInsts|simOps|hostSeconds|overallMisses|overallMissRate" m5out/stats.txt
+simSeconds                                   0.200431                       # Number of seconds simulated (Second)
+simTicks                                 200431350000                       # Number of ticks simulated (Tick)
+hostSeconds                                     53.24                       # Real time elapsed on the host (Second)
+simInsts                                     70367748                       # Number of instructions simulated (Count)
+simOps                                       70683183                       # Number of ops (including micro ops) simulated (Count)
+system.cpu.numCycles                        400862700                       # Number of cpu cycles simulated (Cycle)
+system.cpu.dcache.overallMisses::cpu.data      1357885                       # number of overall misses (Count)
+system.cpu.dcache.overallMisses::total        1357885                       # number of overall misses (Count)
+system.cpu.dcache.overallMissRate::cpu.data     0.057871                       # miss rate for overall accesses (Ratio)
+system.cpu.dcache.overallMissRate::total     0.057871                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMisses::cpu.inst         1564                       # number of overall misses (Count)
+system.cpu.icache.overallMisses::total           1564                       # number of overall misses (Count)
+system.cpu.icache.overallMissRate::cpu.inst     0.000015                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMissRate::total     0.000015                       # miss rate for overall accesses (Ratio)
+
+//======================== STAGE 3 = M1  ========================//
+Final Feature Checksum: 99.2277
+Exiting @ tick 201673369000 because exiting with last active thread context
+grep -E "simSeconds|simTicks|numCycles|simInsts|simOps|hostSeconds|overallMisses|overallMissRate" m5out/stats.txt
+simSeconds                                   0.201673                       # Number of seconds simulated (Second)
+simTicks                                 201673369000                       # Number of ticks simulated (Tick)
+hostSeconds                                     57.01                       # Real time elapsed on the host (Second)
+simInsts                                     69806044                       # Number of instructions simulated (Count)
+simOps                                       73332743                       # Number of ops (including micro ops) simulated (Count)
+system.cpu.numCycles                        403346738                       # Number of cpu cycles simulated (Cycle)
+system.cpu.dcache.overallMisses::cpu.data      1357927                       # number of overall misses (Count)
+system.cpu.dcache.overallMisses::total        1357927                       # number of overall misses (Count)
+system.cpu.dcache.overallMissRate::cpu.data     0.051695                       # miss rate for overall accesses (Ratio)
+system.cpu.dcache.overallMissRate::total     0.051695                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMisses::cpu.inst         1549                       # number of overall misses (Count)
+system.cpu.icache.overallMisses::total           1549                       # number of overall misses (Count)
+system.cpu.icache.overallMissRate::cpu.inst     0.000015                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMissRate::total     0.000015                       # miss rate for overall accesses (Ratio)
+
+//======================== STAGE 3 = M8  ========================//
+Final Feature Checksum: 99.2277
+Exiting @ tick 295516058000 because exiting with last active thread context
+grep -E "simSeconds|simTicks|numCycles|simInsts|simOps|hostSeconds|overallMisses|overallMissRate" m5out/stats.txt
+simSeconds                                   0.295516                       # Number of seconds simulated (Second)
+simTicks                                 295516058000                       # Number of ticks simulated (Tick)
+hostSeconds                                     56.77                       # Real time elapsed on the host (Second)
+simInsts                                     66967516                       # Number of instructions simulated (Count)
+simOps                                       71300615                       # Number of ops (including micro ops) simulated (Count)
+system.cpu.numCycles                        591032116                       # Number of cpu cycles simulated (Cycle)
+system.cpu.dcache.overallMisses::cpu.data      3197380                       # number of overall misses (Count)
+system.cpu.dcache.overallMisses::total        3197380                       # number of overall misses (Count)
+system.cpu.dcache.overallMissRate::cpu.data     0.123626                       # miss rate for overall accesses (Ratio)
+system.cpu.dcache.overallMissRate::total     0.123626                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMisses::cpu.inst         1549                       # number of overall misses (Count)
+system.cpu.icache.overallMisses::total           1549                       # number of overall misses (Count)
+system.cpu.icache.overallMissRate::cpu.inst     0.000016                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMissRate::total     0.000016                       # miss rate for overall accesses (Ratio)

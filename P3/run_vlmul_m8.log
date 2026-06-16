@@ -1,0 +1,60 @@
+riscv64-linux-gnu-g++ -static -O2 main.cpp -o main -march=rv64gcv -mabi=lp64d
+/root/gem5/build/RISCV/gem5.opt /root/gem5/configs/deprecated/example/se.py -c /workspace/P3/main --cpu-type=TimingSimpleCPU --mem-size=256MB --caches --l1i_size=32kB --l1i_assoc=8 --l1d_size=32kB --l1d_assoc=8 --cacheline=32
+warn: The se.py script is deprecated. It will be removed in future releases of  gem5.
+Global frequency set at 1000000000000 ticks per second
+src/mem/dram_interface.cc:690: warn: DRAM device capacity (8192 Mbytes) does not match the address range assigned (256 Mbytes)
+src/arch/riscv/isa.cc:275: info: RVV enabled, VLEN = 256 bits, ELEN = 64 bits
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+system.remote_gdb: Listening for connections on port 7000
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 23.1.0.0
+gem5 compiled May 11 2026 21:43:23
+gem5 started Jun 16 2026 17:15:57
+gem5 executing on b79f1d8e30a5, pid 107
+command line: /root/gem5/build/RISCV/gem5.opt /root/gem5/configs/deprecated/example/se.py -c /workspace/P3/main --cpu-type=TimingSimpleCPU --mem-size=256MB --caches --l1i_size=32kB --l1i_assoc=8 --l1d_size=32kB --l1d_assoc=8 --cacheline=32
+
+**** REAL SIMULATION ****
+src/sim/simulate.cc:199: info: Entering event queue @ 0.  Starting simulation...
+src/sim/syscall_emul.cc:85: warn: ignoring syscall set_robust_list(...)
+      (further warnings will be suppressed)
+src/sim/mem_state.cc:448: info: Increasing stack size by one page.
+src/sim/syscall_emul.cc:74: warn: ignoring syscall mprotect(...)
+Starting VITS Text Encoder Simulation (Part 3 SIMD-like)...
+Encoder Simulation Completed.
+Final Feature Checksum: 99.2277
+Exiting @ tick 295516058000 because exiting with last active thread context
+grep -E "simSeconds|simTicks|numCycles|simInsts|simOps|hostSeconds|overallMisses|overallMissRate" m5out/stats.txt
+simSeconds                                   0.295516                       # Number of seconds simulated (Second)
+simTicks                                 295516058000                       # Number of ticks simulated (Tick)
+hostSeconds                                     55.43                       # Real time elapsed on the host (Second)
+simInsts                                     66967516                       # Number of instructions simulated (Count)
+simOps                                       71300615                       # Number of ops (including micro ops) simulated (Count)
+system.cpu.numCycles                        591032116                       # Number of cpu cycles simulated (Cycle)
+system.cpu.dcache.overallMisses::cpu.data      3197380                       # number of overall misses (Count)
+system.cpu.dcache.overallMisses::total        3197380                       # number of overall misses (Count)
+system.cpu.dcache.overallMissRate::cpu.data     0.123626                       # miss rate for overall accesses (Ratio)
+system.cpu.dcache.overallMissRate::total     0.123626                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMisses::cpu.inst         1549                       # number of overall misses (Count)
+system.cpu.icache.overallMisses::total           1549                       # number of overall misses (Count)
+system.cpu.icache.overallMissRate::cpu.inst     0.000016                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMissRate::total     0.000016                       # miss rate for overall accesses (Ratio)
+
+========================================
+ KEY DATA
+========================================
+simSeconds                                   0.295516                       # Number of seconds simulated (Second)
+simTicks                                 295516058000                       # Number of ticks simulated (Tick)
+hostSeconds                                     55.43                       # Real time elapsed on the host (Second)
+simInsts                                     66967516                       # Number of instructions simulated (Count)
+simOps                                       71300615                       # Number of ops (including micro ops) simulated (Count)
+system.cpu.numCycles                        591032116                       # Number of cpu cycles simulated (Cycle)
+system.cpu.dcache.overallMisses::cpu.data      3197380                       # number of overall misses (Count)
+system.cpu.dcache.overallMisses::total        3197380                       # number of overall misses (Count)
+system.cpu.dcache.overallMissRate::cpu.data     0.123626                       # miss rate for overall accesses (Ratio)
+system.cpu.dcache.overallMissRate::total     0.123626                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMisses::cpu.inst         1549                       # number of overall misses (Count)
+system.cpu.icache.overallMisses::total           1549                       # number of overall misses (Count)
+system.cpu.icache.overallMissRate::cpu.inst     0.000016                       # miss rate for overall accesses (Ratio)
+system.cpu.icache.overallMissRate::total     0.000016                       # miss rate for overall accesses (Ratio)

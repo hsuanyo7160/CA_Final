@@ -1,32 +1,3 @@
-
-// VITS Text Encoder - Part 4: CUDA SIMT Implementation (修正版)
-// Advanced Computer Architecture Final Project
-//
-// 本版修正:
-//   [1] 初始化順序對齊 CPU 版 (Part 1-3): 先權重後 x
-//       -> checksum 可與 Part 1 的 99.2277 直接比對 (僅差浮點誤差)
-//   [2] linear_proj 改用「靜態」shared memory (__shared__ float s_in[FILTER_DIM])
-//       -> ptxas -v 會直接顯示 smem 用量, 報告有素材
-//       (動態 extern __shared__ 的大小是執行期決定, 不會出現在編譯期 ptxas info)
-//
-// 硬性規定:
-//   - SIMT: 每個 thread 負責一個 output task
-//   - Shared memory: linear_proj 的 in_row 被該 token 所有 output 重複讀 -> 載入 shared
-//   - 編譯加 -Xptxas -v 觀察暫存器 / shared memory 用量
-//   - 產生 .ptx 判斷 memory / compute-intensive
-//   - ncu 調整 block size 觀察 occupancy
-//
-// 編譯:
-//   nvcc -O2 -arch=sm_75 -Xptxas -v text_encoder_part4.cu -o text_encoder_part4
-//   (sm_75 換成你 GPU 的 compute capability)
-//
-// 產生 PTX:
-//   nvcc -arch=sm_75 -ptx text_encoder_part4.cu -o text_encoder_part4.ptx
-//
-// Nsight Compute:
-//   ncu --set full ./text_encoder_part4
-// =====================================================================
-
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -34,7 +5,7 @@
 #include <cuda_runtime.h>
 
 // ---------------------------------------------------------------------
-// 模型超參數
+// Hyperparameter
 // ---------------------------------------------------------------------
 #define SEQ_LEN     32
 #define HIDDEN_DIM  128
@@ -44,10 +15,10 @@
 #define KERNEL_SIZE 3
 
 // Block size 旋鈕 (Part 4: 掃描 occupancy / 效能)
-#define BLOCK_SIZE  256
+#define BLOCK_SIZE 1024
 
 // ---------------------------------------------------------------------
-// CUDA 錯誤檢查
+// CUDA error checking
 // ---------------------------------------------------------------------
 #define CUDA_CHECK(call)                                                     \
     do {                                                                     \
@@ -60,42 +31,33 @@
     } while (0)
 
 // =====================================================================
-// Kernel: Linear Projection (主角, 靜態 shared memory)
-//   out[i][d] = Σ_k in[i][k] * W[d][k]
-//
-//   配置: 一個 block 負責一個 token i; block 內 threads strip over d
-//   shared memory: in[i][0..in_dim-1] 被該 token 所有 output 重複讀
-//                  -> 協作載入一次到 s_in, 之後從 shared 讀
-//   靜態宣告 s_in[FILTER_DIM]: 開最大需求 (FFN 降維時 in_dim=512)
-//                              -> ptxas -v 會顯示 2048 bytes smem
+// Kernel: Linear Projection
 // =====================================================================
 __global__ void linear_proj_kernel(const float* __restrict__ in,
                                    const float* __restrict__ W,
                                    float* __restrict__ out,
                                    int in_dim, int out_dim) {
-    __shared__ float s_in[FILTER_DIM];        // 靜態 shared memory
-    int i   = blockIdx.x;                      // token index
+    __shared__ float s_in[FILTER_DIM];        
+    int i   = blockIdx.x;           
     int tid = threadIdx.x;
 
-    // 協作載入 in_row 到 shared
     for (int k = tid; k < in_dim; k += blockDim.x) {
         s_in[k] = in[i * in_dim + k];
     }
-    __syncthreads();                           // 確保 in_row 全載入後才計算
+    __syncthreads();                          
 
-    // 每個 thread 負責一個 (或數個) output d
     for (int d = tid; d < out_dim; d += blockDim.x) {
         const float* w_row = &W[d * in_dim];
         float sum = 0.0f;
         for (int k = 0; k < in_dim; ++k) {
-            sum += s_in[k] * w_row[k];         // in_row 來自 shared
+            sum += s_in[k] * w_row[k];         
         }
         out[i * out_dim + d] = sum;
     }
 }
 
 // =====================================================================
-// Kernel: Q * K^T  (1 thread = 1 個 score[h][i][j])
+// Kernel: Q * K^T
 // =====================================================================
 __global__ void qkt_kernel(const float* __restrict__ Q,
                            const float* __restrict__ K,
@@ -118,8 +80,7 @@ __global__ void qkt_kernel(const float* __restrict__ Q,
 }
 
 // =====================================================================
-// Kernel: Softmax  (1 thread = 1 個 row (h,i), loop over j)
-//   一 thread 處理整個 row, 無 block 內協作 -> 不需 __syncthreads()
+// Kernel: Softmax
 // =====================================================================
 __global__ void softmax_kernel(float* __restrict__ scores) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -142,7 +103,7 @@ __global__ void softmax_kernel(float* __restrict__ scores) {
 }
 
 // =====================================================================
-// Kernel: Attn * V  (1 thread = 1 個 out[h][i][d])
+// Kernel: Attn * V
 // =====================================================================
 __global__ void av_kernel(const float* __restrict__ scores,
                          const float* __restrict__ V,
@@ -165,8 +126,7 @@ __global__ void av_kernel(const float* __restrict__ scores,
 }
 
 // =====================================================================
-// Kernel: Layer Normalization  (1 thread = 1 個 token, loop over dim)
-//   一 thread 處理整個 token row -> 不需 __syncthreads()
+// Kernel: Layer Normalization
 // =====================================================================
 __global__ void layer_norm_kernel(const float* __restrict__ in,
                                  float* __restrict__ out, int dim) {
@@ -192,7 +152,7 @@ __global__ void layer_norm_kernel(const float* __restrict__ in,
 }
 
 // =====================================================================
-// Kernel: 1D Convolution (FFN 升維)  (1 thread = 1 個 out[i][oc])
+// Kernel: 1D Convolution (FFN)
 // =====================================================================
 __global__ void conv1d_kernel(const float* __restrict__ in,
                             const float* __restrict__ W,
@@ -221,7 +181,7 @@ __global__ void conv1d_kernel(const float* __restrict__ in,
 }
 
 // =====================================================================
-// Kernel: Residual add  (1 thread = 1 元素, 獨立位址無 race)
+// Kernel: Residual add
 // =====================================================================
 __global__ void residual_kernel(float* __restrict__ x,
                                const float* __restrict__ y, int n) {
@@ -240,10 +200,6 @@ void init_random(std::vector<float>& v) {
 // =====================================================================
 int main() {
     srand(42);
-
-    // --- Host 初始化 ---
-    //  ★ 順序對齊 CPU 版 (Part 1-3): 先權重, x 最後
-    //    確保 rand() 序列分配與 CPU 一致, checksum 可直接比對
     std::vector<float> h_Wq(HIDDEN_DIM * HIDDEN_DIM), h_Wk(HIDDEN_DIM * HIDDEN_DIM),
                        h_Wv(HIDDEN_DIM * HIDDEN_DIM);
     std::vector<float> h_conv_w(FILTER_DIM * HIDDEN_DIM * KERNEL_SIZE);
@@ -252,7 +208,7 @@ int main() {
 
     init_random(h_Wq); init_random(h_Wk); init_random(h_Wv);
     init_random(h_conv_w); init_random(h_proj_w);
-    init_random(h_x);     // x 最後初始化 (對齊 CPU 版)
+    init_random(h_x);
 
     // --- Device buffers ---
     const int HID = SEQ_LEN * HIDDEN_DIM;
@@ -296,7 +252,6 @@ int main() {
     // ---- Encoder Block ----
     layer_norm_kernel<<<grid_for(SEQ_LEN), BLOCK_SIZE>>>(d_x, d_norm1, HIDDEN_DIM);
 
-    // 靜態 shared memory -> 不再傳第三參數
     linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_norm1, d_Wq, d_Q, HIDDEN_DIM, HIDDEN_DIM);
     linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_norm1, d_Wk, d_K, HIDDEN_DIM, HIDDEN_DIM);
     linear_proj_kernel<<<SEQ_LEN, BLOCK_SIZE>>>(d_norm1, d_Wv, d_V, HIDDEN_DIM, HIDDEN_DIM);

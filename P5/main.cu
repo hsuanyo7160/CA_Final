@@ -1,27 +1,3 @@
-// =====================================================================
-// VITS Text Encoder - Part 5: Multi-pattern GPU Parallelism
-// Advanced Computer Architecture Final Project
-//
-// 硬性規定:
-//   - 同時處理多個獨立輸入 Pattern, 擴大資料吞吐量
-//   - 2D CUDA Grid Mapping:
-//       X 軸 (blockIdx.x / threadIdx.x): 原本的 output/thread 索引 (同 Part 4)
-//       Y 軸 (blockIdx.y):               不同的 Pattern 索引
-//   - ncu 分析 pattern 數增加對 occupancy / GPU 使用率 / latency hiding 的影響
-//
-// 與 Part 4 差異:
-//   - 所有 activation buffer 擴為 NUM_PATTERNS 份 (weight 共用)
-//   - 每個 kernel 加 int p = blockIdx.y, activation 存取補 pattern offset
-//   - launch 用 2D grid: dim3(X_blocks, NUM_PATTERNS)
-//
-// 編譯:
-//   nvcc -O2 -arch=sm_75 -Xptxas -v \
-//       text_encoder_part5.cu -o text_encoder_part5
-//
-// ncu (pattern 數掃描): 改 NUM_PATTERNS 重編, 比較 occupancy / 吞吐量
-//   ncu --set full ./text_encoder_part5
-// =====================================================================
-
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -29,7 +5,7 @@
 #include <cuda_runtime.h>
 
 // ---------------------------------------------------------------------
-// 模型超參數
+// Hyperparameter
 // ---------------------------------------------------------------------
 #define SEQ_LEN     32
 #define HIDDEN_DIM  128
@@ -38,10 +14,10 @@
 #define FILTER_DIM  512
 #define KERNEL_SIZE 3
 
-#define BLOCK_SIZE   256    // block size 旋鈕
-#define NUM_PATTERNS 8      // ★ Part 5 主角: 同時處理的 pattern 數 (掃描 1/2/4/8/16...)
+#define BLOCK_SIZE   256    // block size 
+#define NUM_PATTERNS 16
 
-// 單一 pattern 的元素數
+
 #define HID_PER  (SEQ_LEN * HIDDEN_DIM)
 #define FIL_PER  (SEQ_LEN * FILTER_DIM)
 #define SCO_PER  (NUM_HEADS * SEQ_LEN * SEQ_LEN)
@@ -57,28 +33,26 @@
     } while (0)
 
 // =====================================================================
-// Kernel: Linear Projection (2D grid, shared memory)
-//   blockIdx.x = token i ; blockIdx.y = pattern p
-//   out[p][i][d] = Σ_k in[p][i][k] * W[d][k]   (W 跨 pattern 共用)
+// Kernel: Linear Projection
 // =====================================================================
 __global__ void linear_proj_kernel(const float* __restrict__ in,
                                    const float* __restrict__ W,
                                    float* __restrict__ out,
                                    int in_dim, int out_dim) {
-    extern __shared__ float s_in[];
-    int i   = blockIdx.x;                     // token (X 軸)
-    int p   = blockIdx.y;                     // pattern (Y 軸)
+    __shared__ float s_in[FILTER_DIM];        
+    int i   = blockIdx.x;                     
+    int p   = blockIdx.y;                     
     int tid = threadIdx.x;
 
     const float* in_row  = &in[((size_t)p * SEQ_LEN + i) * in_dim];
     float*       out_row = &out[((size_t)p * SEQ_LEN + i) * out_dim];
 
     for (int k = tid; k < in_dim; k += blockDim.x)
-        s_in[k] = in_row[k];                  // 該 pattern 該 token 的 in_row 載入 shared
+        s_in[k] = in_row[k];                   
     __syncthreads();
 
     for (int d = tid; d < out_dim; d += blockDim.x) {
-        const float* w_row = &W[d * in_dim];  // weight 共用
+        const float* w_row = &W[d * in_dim]; 
         float sum = 0.0f;
         for (int k = 0; k < in_dim; ++k)
             sum += s_in[k] * w_row[k];
@@ -87,14 +61,14 @@ __global__ void linear_proj_kernel(const float* __restrict__ in,
 }
 
 // =====================================================================
-// Kernel: Q * K^T  (2D grid; 1 thread = 1 個 score[p][h][i][j])
+// Kernel: Q * K^T
 // =====================================================================
 __global__ void qkt_kernel(const float* __restrict__ Q,
                            const float* __restrict__ K,
                            float* __restrict__ scores, float scale) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= SCO_PER) return;
-    int p = blockIdx.y;                       // pattern (Y 軸)
+    int p = blockIdx.y;
 
     int j = idx % SEQ_LEN;
     int i = (idx / SEQ_LEN) % SEQ_LEN;
@@ -114,7 +88,7 @@ __global__ void qkt_kernel(const float* __restrict__ Q,
 }
 
 // =====================================================================
-// Kernel: Softmax  (2D grid; 1 thread = 1 個 row (p,h,i))
+// Kernel: Softmax
 // =====================================================================
 __global__ void softmax_kernel(float* __restrict__ scores) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -137,7 +111,7 @@ __global__ void softmax_kernel(float* __restrict__ scores) {
 }
 
 // =====================================================================
-// Kernel: Attn * V  (2D grid; 1 thread = 1 個 out[p][h][i][d])
+// Kernel: Attn * V
 // =====================================================================
 __global__ void av_kernel(const float* __restrict__ scores,
                          const float* __restrict__ V,
@@ -163,7 +137,7 @@ __global__ void av_kernel(const float* __restrict__ scores,
 }
 
 // =====================================================================
-// Kernel: Layer Normalization  (2D grid; 1 thread = 1 個 token (p,i))
+// Kernel: Layer Normalization
 // =====================================================================
 __global__ void layer_norm_kernel(const float* __restrict__ in,
                                  float* __restrict__ out, int dim) {
@@ -189,7 +163,7 @@ __global__ void layer_norm_kernel(const float* __restrict__ in,
 }
 
 // =====================================================================
-// Kernel: 1D Convolution (2D grid; 1 thread = 1 個 out[p][i][oc])
+// Kernel: 1D Convolution
 // =====================================================================
 __global__ void conv1d_kernel(const float* __restrict__ in,
                             const float* __restrict__ W,
@@ -221,7 +195,7 @@ __global__ void conv1d_kernel(const float* __restrict__ in,
 }
 
 // =====================================================================
-// Kernel: Residual add  (1D, 涵蓋所有 pattern 的所有元素)
+// Kernel: Residual add
 // =====================================================================
 __global__ void residual_kernel(float* __restrict__ x,
                                const float* __restrict__ y, int n) {
@@ -245,17 +219,18 @@ int main() {
     const int TOT_FIL = NUM_PATTERNS * FIL_PER;
     const int TOT_SCO = NUM_PATTERNS * SCO_PER;
 
-    // --- Host 初始化 (NUM_PATTERNS 份輸入, 共用權重) ---
-    std::vector<float> h_x(TOT_HID);
+    // --- Host 初始化 ---
     std::vector<float> h_Wq(HIDDEN_DIM * HIDDEN_DIM), h_Wk(HIDDEN_DIM * HIDDEN_DIM),
                        h_Wv(HIDDEN_DIM * HIDDEN_DIM);
     std::vector<float> h_conv_w(FILTER_DIM * HIDDEN_DIM * KERNEL_SIZE);
     std::vector<float> h_proj_w(HIDDEN_DIM * FILTER_DIM);
-    init_random(h_x);
+    std::vector<float> h_x(TOT_HID);
+
     init_random(h_Wq); init_random(h_Wk); init_random(h_Wv);
     init_random(h_conv_w); init_random(h_proj_w);
+    init_random(h_x);
 
-    // --- Device buffers (activation 擴為 NUM_PATTERNS 份) ---
+    // --- Device buffers
     float *d_x, *d_norm1, *d_Q, *d_K, *d_V, *d_scores, *d_attn,
           *d_norm2, *d_ffn, *d_proj;
     float *d_Wq, *d_Wk, *d_Wv, *d_conv_w, *d_proj_w;
@@ -285,13 +260,12 @@ int main() {
 
     float scale = 1.0f / sqrtf((float)HEAD_DIM);
 
-    // 2D grid: X 軸 = 原 thread 配置, Y 軸 = NUM_PATTERNS
-    dim3 g_ln  (grid_for(SEQ_LEN),                          NUM_PATTERNS);
-    dim3 g_proj(SEQ_LEN,                                    NUM_PATTERNS);  // 一 block 一 token
-    dim3 g_qkt (grid_for(SCO_PER),                          NUM_PATTERNS);
-    dim3 g_smx (grid_for(NUM_HEADS * SEQ_LEN),              NUM_PATTERNS);
-    dim3 g_av  (grid_for(NUM_HEADS * SEQ_LEN * HEAD_DIM),   NUM_PATTERNS);
-    dim3 g_conv(grid_for(SEQ_LEN * FILTER_DIM),             NUM_PATTERNS);
+    dim3 g_ln  (grid_for(SEQ_LEN),                        NUM_PATTERNS);
+    dim3 g_proj(SEQ_LEN,                                  NUM_PATTERNS);
+    dim3 g_qkt (grid_for(SCO_PER),                        NUM_PATTERNS);
+    dim3 g_smx (grid_for(NUM_HEADS * SEQ_LEN),            NUM_PATTERNS);
+    dim3 g_av  (grid_for(NUM_HEADS * SEQ_LEN * HEAD_DIM), NUM_PATTERNS);
+    dim3 g_conv(grid_for(SEQ_LEN * FILTER_DIM),           NUM_PATTERNS);
 
     cudaEvent_t t0, t1;
     CUDA_CHECK(cudaEventCreate(&t0));
@@ -300,15 +274,12 @@ int main() {
 
     printf("Starting VITS Text Encoder Simulation (Part 5 Multi-pattern)...\n");
 
-    size_t shmem1 = HIDDEN_DIM * sizeof(float);
-    size_t shmem2 = FILTER_DIM * sizeof(float);
-
     // ---- Encoder Block (multi-pattern) ----
     layer_norm_kernel<<<g_ln, BLOCK_SIZE>>>(d_x, d_norm1, HIDDEN_DIM);
 
-    linear_proj_kernel<<<g_proj, BLOCK_SIZE, shmem1>>>(d_norm1, d_Wq, d_Q, HIDDEN_DIM, HIDDEN_DIM);
-    linear_proj_kernel<<<g_proj, BLOCK_SIZE, shmem1>>>(d_norm1, d_Wk, d_K, HIDDEN_DIM, HIDDEN_DIM);
-    linear_proj_kernel<<<g_proj, BLOCK_SIZE, shmem1>>>(d_norm1, d_Wv, d_V, HIDDEN_DIM, HIDDEN_DIM);
+    linear_proj_kernel<<<g_proj, BLOCK_SIZE>>>(d_norm1, d_Wq, d_Q, HIDDEN_DIM, HIDDEN_DIM);
+    linear_proj_kernel<<<g_proj, BLOCK_SIZE>>>(d_norm1, d_Wk, d_K, HIDDEN_DIM, HIDDEN_DIM);
+    linear_proj_kernel<<<g_proj, BLOCK_SIZE>>>(d_norm1, d_Wv, d_V, HIDDEN_DIM, HIDDEN_DIM);
 
     qkt_kernel<<<g_qkt, BLOCK_SIZE>>>(d_Q, d_K, d_scores, scale);
     softmax_kernel<<<g_smx, BLOCK_SIZE>>>(d_scores);
@@ -318,7 +289,7 @@ int main() {
 
     layer_norm_kernel<<<g_ln, BLOCK_SIZE>>>(d_x, d_norm2, HIDDEN_DIM);
     conv1d_kernel<<<g_conv, BLOCK_SIZE>>>(d_norm2, d_conv_w, d_ffn, HIDDEN_DIM, FILTER_DIM);
-    linear_proj_kernel<<<g_proj, BLOCK_SIZE, shmem2>>>(d_ffn, d_proj_w, d_proj, FILTER_DIM, HIDDEN_DIM);
+    linear_proj_kernel<<<g_proj, BLOCK_SIZE>>>(d_ffn, d_proj_w, d_proj, FILTER_DIM, HIDDEN_DIM);
 
     residual_kernel<<<grid_for(TOT_HID), BLOCK_SIZE>>>(d_x, d_proj, TOT_HID);
 
@@ -335,10 +306,13 @@ int main() {
     float checksum = 0.0f;
     for (float v : h_out) checksum += v;
 
+    float checksum_p0 = 0.0f;
+    for (int idx = 0; idx < HID_PER; ++idx) checksum_p0 += h_out[idx];
+
     printf("Encoder Simulation Completed.\n");
     printf("Patterns: %d | Block size: %d\n", NUM_PATTERNS, BLOCK_SIZE);
     printf("Kernel time: %.4f ms (%.4f ms / pattern)\n", ms, ms / NUM_PATTERNS);
-    printf("Final Feature Checksum: %f\n", checksum);
+    printf("Pattern-0 Checksum: %f\n", checksum_p0);
 
     cudaFree(d_x); cudaFree(d_norm1); cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V);
     cudaFree(d_scores); cudaFree(d_attn); cudaFree(d_norm2); cudaFree(d_ffn); cudaFree(d_proj);
