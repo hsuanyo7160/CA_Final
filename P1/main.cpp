@@ -1,32 +1,20 @@
-// =====================================================================
-// VITS Text Encoder - Scalar Baseline (Part 1)
-// Advanced Computer Architecture Final Project
-//
-// 核心可平行化運算: f(a,b) = a * b, 累加形式 Σ f(a_i, b_i)
-//   - Multi-Head Attention (Q*K^T, Attn*V)
-//   - FFN Conv1d (升維) + Linear Projection (降維)
-//   - LayerNorm (Vector Reduction 對應點)
-//
-// 防死碼刪除: 最終以 checksum 輸出強迫編譯器保留所有運算
-// =====================================================================
-
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <cstdlib>
 
 // ---------------------------------------------------------------------
-// 模型超參數
+// Hyperparameters
 // ---------------------------------------------------------------------
-const int SEQ_LEN    = 32;                    // 句子長度 (Token 數量)
-const int HIDDEN_DIM = 128;                   // 隱藏層維度 (須能被 NUM_HEADS 整除)
-const int NUM_HEADS  = 4;                     // 注意力機制的頭數
+const int SEQ_LEN    = 32;                    
+const int HIDDEN_DIM = 128;                   
+const int NUM_HEADS  = 4;                     
 const int HEAD_DIM   = HIDDEN_DIM / NUM_HEADS;
-const int FILTER_DIM = 512;                   // FFN 擴展維度 (Hidden 的 4 倍)
-const int KERNEL_SIZE = 3;                    // 1D Conv 卷積核大小
+const int FILTER_DIM = 512;                   
+const int KERNEL_SIZE = 3;
 
 // ---------------------------------------------------------------------
-// 權重容器 (一次初始化, 固定不變, 確保可重現)
+// Weights Structure
 // ---------------------------------------------------------------------
 struct Weights {
     std::vector<float> Wq, Wk, Wv;            // [HIDDEN_DIM * HIDDEN_DIM]
@@ -56,7 +44,6 @@ void init_weights(Weights& w) {
 
 // =====================================================================
 // Layer Normalization
-//   核心: 兩次 Σ reduction (sum, sq_sum) -> 對應 Part 2 Vector Reduction
 // =====================================================================
 void layer_norm(const std::vector<float>& input, std::vector<float>& output,
                 int seq_len, int dim) {
@@ -78,7 +65,7 @@ void layer_norm(const std::vector<float>& input, std::vector<float>& output,
         }
         float var = sq_sum / dim;
 
-        // 逐元素正規化 (Vector Arithmetic)
+        // Vector Arithmetic
         float inv_std = 1.0f / std::sqrt(var + 1e-5f);
         for (int j = 0; j < dim; ++j) {
             output[offset + j] = (input[offset + j] - mean) * inv_std;
@@ -87,9 +74,7 @@ void layer_norm(const std::vector<float>& input, std::vector<float>& output,
 }
 
 // =====================================================================
-// 線性投影: out[i][d] = Σ_k in[i][k] * W[d][k]
-//   通用於 Q = X*Wq, K = X*Wk, V = X*Wv
-//   核心 nested loop: f(a,b) = a*b, 累加成純量 (Reduction 對應點)
+// Linear Projection (for Q, K, V)
 // =====================================================================
 void linear_proj(const std::vector<float>& input, const std::vector<float>& W,
                  std::vector<float>& output, int in_dim, int out_dim) {
@@ -106,9 +91,6 @@ void linear_proj(const std::vector<float>& input, const std::vector<float>& W,
 
 // =====================================================================
 // Multi-Head Attention
-//   1. Q,K,V 線性投影 (來自 input, 確保 checksum 有意義)
-//   2. Q*K^T -> scale -> softmax
-//   3. Attn*V
 // =====================================================================
 void multi_head_attention(const std::vector<float>& input,
                           std::vector<float>& output,
@@ -131,7 +113,7 @@ void multi_head_attention(const std::vector<float>& input,
             std::vector<float> scores(SEQ_LEN, 0.0f);
             float max_score = -1e9f;
 
-            // 1. Q * K^T (核心 dot product: Σ q*k)
+            // 1. Q * K^T
             for (int j = 0; j < SEQ_LEN; ++j) {
                 float dot = 0.0f;
                 for (int d = 0; d < HEAD_DIM; ++d) {
@@ -142,7 +124,7 @@ void multi_head_attention(const std::vector<float>& input,
                 if (scores[j] > max_score) max_score = scores[j];
             }
 
-            // 2. Softmax (數值穩定: 減 max)
+            // 2. Softmax
             float sum_exp = 0.0f;
             for (int j = 0; j < SEQ_LEN; ++j) {
                 scores[j] = std::exp(scores[j] - max_score);
@@ -152,7 +134,7 @@ void multi_head_attention(const std::vector<float>& input,
                 scores[j] /= sum_exp;
             }
 
-            // 3. Attn * V (核心 weighted sum: Σ score*v)
+            // 3. Attn * V
             for (int d = 0; d < HEAD_DIM; ++d) {
                 float out_val = 0.0f;
                 for (int j = 0; j < SEQ_LEN; ++j) {
@@ -165,9 +147,7 @@ void multi_head_attention(const std::vector<float>& input,
 }
 
 // =====================================================================
-// 1D Convolution (FFN 升維: HIDDEN_DIM -> FILTER_DIM)
-//   核心 nested loop: Σ in*weight, 跨 kernel + input channel
-//   ReLU activation
+// 1D Convolution (FFN: HIDDEN_DIM -> FILTER_DIM)
 // =====================================================================
 void ffn_conv1d(const std::vector<float>& input, std::vector<float>& output,
                 const std::vector<float>& weights, int in_dim, int out_dim) {
@@ -188,7 +168,6 @@ void ffn_conv1d(const std::vector<float>& input, std::vector<float>& output,
                     }
                 }
             }
-
             // ReLU
             output[i * out_dim + oc] = (sum > 0.0f) ? sum : 0.0f;
         }
@@ -196,8 +175,7 @@ void ffn_conv1d(const std::vector<float>& input, std::vector<float>& output,
 }
 
 // =====================================================================
-// 完整 VITS Encoder Block
-//   LN -> MHA -> Residual -> LN -> FFN(升維) -> Proj(降維) -> Residual
+// VITS Encoder Block
 // =====================================================================
 void vits_encoder_block(std::vector<float>& x, const Weights& w) {
     std::vector<float> norm1_out(SEQ_LEN * HIDDEN_DIM);
@@ -218,11 +196,10 @@ void vits_encoder_block(std::vector<float>& x, const Weights& w) {
     // 3. LayerNorm 2
     layer_norm(x, norm2_out, SEQ_LEN, HIDDEN_DIM);
 
-    // 4. FFN 升維 (Conv1d): HIDDEN_DIM -> FILTER_DIM
+    // 4. FFN (Conv1d): HIDDEN_DIM -> FILTER_DIM
     ffn_conv1d(norm2_out, ffn_out, w.conv_w, HIDDEN_DIM, FILTER_DIM);
 
-    // 5. FFN 降維投影 (Linear): FILTER_DIM -> HIDDEN_DIM
-    //    proj_out[i][j] = Σ_k ffn_out[i][k] * proj_w[j][k]
+    // 5. FFN (Linear): FILTER_DIM -> HIDDEN_DIM
     for (int i = 0; i < SEQ_LEN; ++i) {
         for (int j = 0; j < HIDDEN_DIM; ++j) {
             float sum = 0.0f;
@@ -233,13 +210,12 @@ void vits_encoder_block(std::vector<float>& x, const Weights& w) {
         }
     }
 
-    // Residual 2
     for (size_t i = 0; i < x.size(); ++i) x[i] += ffn_proj_out[i];
 }
 
-// =====================================================================
+
 int main() {
-    srand(42);  // 固定 seed, 確保 baseline 可重現
+    srand(42);
 
     Weights w;
     init_weights(w);
@@ -251,7 +227,6 @@ int main() {
 
     vits_encoder_block(x, w);
 
-    // Checksum 輸出 (防死碼刪除)
     float checksum = 0.0f;
     for (float val : x) {
         checksum += val;
